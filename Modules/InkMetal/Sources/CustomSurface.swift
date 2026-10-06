@@ -18,7 +18,7 @@ public final class CustomSurface: UIView, InkSurface {
     private var activeTouch: UITouch?
     private var activeBuilder: StrokeBuilder?
     private var displayLink: CADisplayLink?
-    private var needsRender = true
+    private(set) var needsRender = true
 
     public override init(frame: CGRect = .zero) {
         super.init(frame: frame)
@@ -94,13 +94,18 @@ public final class CustomSurface: UIView, InkSurface {
     }
 
     @objc private func step(_ link: CADisplayLink) {
+        renderIfNeeded()
+    }
+
+    func renderIfNeeded() {
         guard needsRender, let renderer else { return }
-        needsRender = false
         var vertices = document.strokes.flatMap { StrokeGeometry.triangles(for: $0.samples, tool: $0.tool) }
         if let builder = activeBuilder {
             vertices += StrokeGeometry.triangles(for: builder.displaySamples, tool: builder.tool)
         }
-        renderer.render(vertices: vertices, to: metalLayer, viewportSize: bounds.size)
+        if renderer.render(vertices: vertices, to: metalLayer, viewportSize: bounds.size) {
+            needsRender = false
+        }
     }
 
     // MARK: Touches

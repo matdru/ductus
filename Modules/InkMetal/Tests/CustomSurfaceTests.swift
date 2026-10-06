@@ -70,6 +70,15 @@ struct CustomSurfaceTests {
         #expect(CustomSurface().isMultipleTouchEnabled)
     }
 
+    /// If a frame can't be drawn (no drawable, zero viewport), the pending render must survive
+    /// so the next display-link tick retries — otherwise the stroke-end frame can be lost.
+    @Test func failedRenderStaysPending() {
+        let surface = CustomSurface(frame: .zero)
+        surface.load([stroke(0)])
+        surface.renderIfNeeded()
+        #expect(surface.needsRender)
+    }
+
     @Test func pencilOnlyByDefault() {
         #expect(CustomSurface().allowsFingerDrawing == false)
     }

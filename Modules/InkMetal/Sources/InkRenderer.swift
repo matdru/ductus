@@ -56,18 +56,19 @@ final class InkRenderer {
     }
 
     /// `viewportSize` is in points, the same space as the vertices.
-    func render(vertices: [InkVertex], to layer: CAMetalLayer, viewportSize: CGSize) {
+    /// Returns false when nothing was presented, so the caller can retry next frame.
+    func render(vertices: [InkVertex], to layer: CAMetalLayer, viewportSize: CGSize) -> Bool {
         guard viewportSize.width > 0, viewportSize.height > 0,
             let drawable = layer.nextDrawable(),
             let commandBuffer = queue.makeCommandBuffer()
-        else { return }
+        else { return false }
 
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = drawable.texture
         pass.colorAttachments[0].loadAction = .clear
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 1, green: 1, blue: 1, alpha: 1)
         pass.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else { return }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else { return false }
 
         if !vertices.isEmpty,
             let buffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<InkVertex>.stride * vertices.count)
@@ -81,5 +82,6 @@ final class InkRenderer {
         encoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()
+        return true
     }
 }
