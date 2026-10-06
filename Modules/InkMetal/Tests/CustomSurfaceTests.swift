@@ -13,14 +13,28 @@ struct CustomSurfaceTests {
 
     @Test func drawableSizeTracksBoundsTimesScale() {
         let surface = CustomSurface(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        let scale: CGFloat = 2
+        surface.traitOverrides.displayScale = scale
+        surface.updateTraitsIfNeeded()
         surface.layoutIfNeeded()
-        let scale = surface.contentScaleFactor
         #expect(surface.metalLayer.drawableSize == CGSize(width: 300 * scale, height: 200 * scale))
 
         // Rotation / Split View / Stage Manager resize.
         surface.frame = CGRect(x: 0, y: 0, width: 200, height: 500)
         surface.layoutIfNeeded()
         #expect(surface.metalLayer.drawableSize == CGSize(width: 200 * scale, height: 500 * scale))
+    }
+
+    /// A CAMetalLayer-backed view keeps contentScaleFactor at 1 even on Retina screens,
+    /// so the drawable must be sized from the display scale trait.
+    @Test func drawableUsesDisplayScale() {
+        let surface = CustomSurface(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        surface.traitOverrides.displayScale = 3
+        surface.updateTraitsIfNeeded()
+        surface.setNeedsLayout()
+        surface.layoutIfNeeded()
+        #expect(surface.metalLayer.drawableSize == CGSize(width: 900, height: 600))
+        #expect(surface.metalLayer.contentsScale == 3)
     }
 
     @Test func loadUndoClearAndExport() {

@@ -28,6 +28,9 @@ public final class CustomSurface: UIView, InkSurface {
         metalLayer.device = renderer?.device
         metalLayer.pixelFormat = InkRenderer.pixelFormat
         metalLayer.framebufferOnly = true
+        registerForTraitChanges([UITraitDisplayScale.self]) { (surface: CustomSurface, _: UITraitCollection) in
+            surface.setNeedsLayout()
+        }
     }
 
     @available(*, unavailable)
@@ -65,7 +68,10 @@ public final class CustomSurface: UIView, InkSurface {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        let scale = contentScaleFactor
+        // contentScaleFactor stays 1 for a CAMetalLayer-backed view without draw(_:),
+        // so size the drawable from the display scale trait instead.
+        let displayScale = traitCollection.displayScale
+        let scale = displayScale > 0 ? displayScale : contentScaleFactor
         metalLayer.contentsScale = scale
         metalLayer.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
         setNeedsRender()
