@@ -8,7 +8,7 @@ run = "tuist generate --no-open"
 
 [tasks.test]
 description = "Run all unit tests on the iPad simulator"
-run = "tuist test --device 'iPad Pro 13-inch (M5)' --os 27.0"
+run = "tuist test --no-selective-testing --device 'iPad Pro 13-inch (M5)' --os 27.0"
 
 [tasks.lint]
 description = "SwiftLint + swift-format lint"
