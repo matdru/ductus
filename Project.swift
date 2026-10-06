@@ -37,4 +37,5 @@ let project = Project(
     name: "Ductus",
     settings: baseSettings,
     targets: module("InkCore")
+        + module("InkMetal", dependencies: [.target(name: "InkCore")])
 )
