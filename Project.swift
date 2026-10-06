@@ -33,10 +33,51 @@ func module(_ name: String, dependencies: [TargetDependency] = []) -> [Target] {
     ]
 }
 
+func app(_ name: String, bundleId: String, dependencies: [TargetDependency], tests: Bool) -> [Target] {
+    var targets: [Target] = [
+        .target(
+            name: name,
+            destinations: destinations,
+            product: .app,
+            bundleId: bundleId,
+            deploymentTargets: deploymentTargets,
+            infoPlist: .extendingDefault(with: [
+                "UILaunchScreen": [:],
+                "UISupportedInterfaceOrientations~ipad": [
+                    "UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
+                    "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight",
+                ],
+            ]),
+            sources: ["Apps/\(name)/Sources/**"],
+            resources: ["Apps/\(name)/Resources/**"],
+            dependencies: dependencies,
+            settings: baseSettings
+        )
+    ]
+    if tests {
+        targets.append(
+            .target(
+                name: "\(name)Tests",
+                destinations: destinations,
+                product: .unitTests,
+                bundleId: "\(bundleId).tests",
+                deploymentTargets: deploymentTargets,
+                sources: ["Apps/\(name)/Tests/**"],
+                dependencies: [.target(name: name)],
+                settings: baseSettings
+            ))
+    }
+    return targets
+}
+
 let project = Project(
     name: "Ductus",
     settings: baseSettings,
     targets: module("InkCore")
         + module("InkMetal", dependencies: [.target(name: "InkCore")])
         + module("InkPencilKit", dependencies: [.target(name: "InkCore")])
+        + app(
+            "FeelLab", bundleId: "app.ductus.feellab",
+            dependencies: [.target(name: "InkCore"), .target(name: "InkMetal"), .target(name: "InkPencilKit")],
+            tests: true)
 )
