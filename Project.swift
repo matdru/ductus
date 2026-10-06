@@ -38,4 +38,5 @@ let project = Project(
     settings: baseSettings,
     targets: module("InkCore")
         + module("InkMetal", dependencies: [.target(name: "InkCore")])
+        + module("InkPencilKit", dependencies: [.target(name: "InkCore")])
 )
