@@ -64,6 +64,12 @@ struct CustomSurfaceTests {
         #expect(surface.exportStrokes().isEmpty)
     }
 
+    /// With multi-touch off, UIKit delivers only the first touch: a resting palm would
+    /// swallow the Pencil. The surface's own guards keep it to one stroke at a time.
+    @Test func restingPalmDoesNotBlockPencilDelivery() {
+        #expect(CustomSurface().isMultipleTouchEnabled)
+    }
+
     @Test func pencilOnlyByDefault() {
         #expect(CustomSurface().allowsFingerDrawing == false)
     }

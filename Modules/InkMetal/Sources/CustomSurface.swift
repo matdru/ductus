@@ -22,7 +22,8 @@ public final class CustomSurface: UIView, InkSurface {
 
     public override init(frame: CGRect = .zero) {
         super.init(frame: frame)
-        isMultipleTouchEnabled = false
+        // Must be true: otherwise a resting palm (first touch) swallows the Pencil touch.
+        isMultipleTouchEnabled = true
         isOpaque = true
         backgroundColor = .white
         metalLayer.device = renderer?.device
