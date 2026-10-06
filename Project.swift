@@ -80,4 +80,8 @@ let project = Project(
             "FeelLab", bundleId: "app.ductus.feellab",
             dependencies: [.target(name: "InkCore"), .target(name: "InkMetal"), .target(name: "InkPencilKit")],
             tests: true)
+        + app(
+            "Ductus", bundleId: "app.ductus",
+            dependencies: [.target(name: "InkCore"), .target(name: "InkPencilKit")],
+            tests: false)
 )
