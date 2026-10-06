@@ -91,3 +91,11 @@ Dependency direction: `InkCore` ← `InkMetal`, `InkPencilKit` ← apps. Nothing
 - **phase-0.md:** concrete test protocol — slow-mo latency method (frame-counting at 240 fps), blind A/B procedure and sample size, pass/fail thresholds, stress-test spec; recommended answers to open questions (op log wrapping `PKDrawing` if PencilKit wins; tune on Pencil Pro, support Pencil USB-C and 2nd gen); harness layout now references the real module names.
 - **architecture.md (new):** the content of this spec's Decisions, layout and module sections, written as a living document.
 - **CLAUDE.md (new):** setup and build/test/lint commands, module rules (InkCore stays UIKit-free; dependency direction).
+
+## Amendments (2026-10-06, from planning)
+
+1. `StrokeSample` has no `isPredicted` flag. Predicted samples live only in `StrokeBuilder.predicted`, so they can never be persisted or exported.
+2. `InkSurface` gains `allowsFingerDrawing` (Pencil-only by default; on in the simulator so the pointer can draw) and `load(_:)` (needed by Replay mode and tests).
+3. `clear()` is not undoable on either surface (keeps engines behaving identically in the harness). `undo()` removes the most recent stroke.
+4. No `tuist install` step — there are no external dependencies. Setup is `mise install && mise run generate`.
+5. `InkCore` also contains `InkDocument`, an in-memory op log (`[InkOp]`) with derived `strokes`, used by `CustomSurface`.

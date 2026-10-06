@@ -1,0 +1,13 @@
+included:
+  - Apps
+  - Modules
+excluded:
+  - Derived
+disabled_rules:
+  - trailing_comma   # swift-format owns formatting
+  - opening_brace
+identifier_name:
+  min_length: 1
+line_length:
+  warning: 120
+  ignores_comments: true
