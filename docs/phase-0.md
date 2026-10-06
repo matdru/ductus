@@ -65,10 +65,10 @@ Run every test on the same iPad and Pencil, at full brightness, with Low Power M
 
 ### Blind A/B
 
-- The app picks the engine at random for each trial (logged, hidden from the tester).
-- The tester writes the same phrase ("the quick brown fox"), then rates it **better / same / worse** than the previous trial.
-- At least **30 trials per tester**, at least **4 testers** including the author.
-- Analysis: a binomial test on the non-tie preferences. **20/30 or more** for one engine is a meaningful preference (p < 0.05).
+- Each trial is a **pair**. The tester writes the same phrase ("the quick brown fox") on engine A, then on engine B. The app randomises which engine is A for every pair (logged, hidden from the tester).
+- After each pair, the tester makes a **forced choice**: "first felt better" or "second felt better". There is no "same" option, so every trial counts.
+- At least **30 pairs per tester**, at least **4 testers** including the author. Analyse per tester and pooled.
+- Analysis: a two-sided binomial test on the number of pairs won by each engine. A meaningful preference (p < 0.05) needs **21 of 30**; for other counts: 15/20, 18/25, 27/40.
 
 ### Stress
 
