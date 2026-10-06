@@ -6,7 +6,7 @@ import UIKit
 /// Deliberately crude baseline; latency tuning (drawable count, present timing, smoothing) is Phase 0 work.
 @MainActor
 public final class CustomSurface: UIView, InkSurface {
-    public override class var layerClass: AnyClass { CAMetalLayer.self }
+    public override static var layerClass: AnyClass { CAMetalLayer.self }
     // swiftlint:disable:next force_cast
     public var metalLayer: CAMetalLayer { layer as! CAMetalLayer }
 
@@ -51,7 +51,9 @@ public final class CustomSurface: UIView, InkSurface {
 
     public func load(_ strokes: [Stroke]) {
         document = InkDocument()
-        strokes.forEach { document.apply(.addStroke($0)) }
+        for stroke in strokes {
+            document.apply(.addStroke(stroke))
+        }
         setNeedsRender()
     }
 
