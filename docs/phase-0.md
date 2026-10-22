@@ -14,7 +14,7 @@ The harness is the `FeelLab` app, sharing modules with the real `Ductus` app (se
 |---|---|---|
 | `InkSurface` protocol — clear, undo, set tool, load, export, finger policy | `Modules/InkCore` | Done |
 | `PencilKitSurface` — wraps `PKCanvasView` | `Modules/InkPencilKit` | Done |
-| `CustomSurface` — `UITouch` pipeline → Metal renderer | `Modules/InkMetal` | Baseline (constant width, no smoothing) |
+| `CustomSurface` — `UITouch` pipeline → Metal renderer | `Modules/InkMetal` | Antialiased capsules, page cache, smoothing, Pen + Fountain inks |
 | `Stroke ⇄ PKStroke` conversion (for Replay) | `Modules/InkPencilKit` | Done |
 | Engine switcher + undo/clear | `Apps/FeelLab` | Done |
 | Split, Replay, Blind A/B modes | `Apps/FeelLab` | To build (shown as "coming soon") |
@@ -27,7 +27,23 @@ Nothing else on top: no persistence, minimal shared tool UI (colour, width). Kee
 - Coalesced touches for full-rate Pencil samples — **done**
 - Predicted touches for perceived latency — **done** (prediction tail is replaced each event, never stored)
 - 120 Hz ProMotion via `CADisplayLink` — **done**; low-latency presentation tuning (drawable count, present timing) — to do
-- Pressure, tilt and azimuth mapped to width/opacity — to do
+- Antialiased variable-width strokes with round joins/caps (capsule SDF), finished-stroke page cache — **done** (2026-10-22)
+- Causal smoothing, lag capped at 0.5 pt — **done**
+- Fountain pen: direction-driven nib fitted to PencilKit — **done**; pressure and speed response exist but default to 0
+- Tilt and azimuth mapped to width/opacity — to do (nib can optionally follow azimuth)
+
+## PencilKit fountain pen measurements (2026-10-22)
+
+From the author's on-device export ([data](phase-0-data/2026-10-22-pencilkit-fountain-pen.json), 56 strokes, Apple Pencil 2, iPad Pro 11" M2), re-rendered through PencilKit and measured perpendicular to the stroke:
+
+| Direction | Light pressure | Hard pressure |
+|---|---|---|
+| Horizontal → | 1.3 pt | 1.3 pt |
+| Vertical ↓ | 7.8 pt | 7.9–8.9 pt |
+| Diagonal ↗ | 2.2 pt | 2.1 pt |
+| Diagonal ↘ | 5.0–5.9 pt | 4.5–5.3 pt |
+
+Width depends on stroke direction only — not pressure or speed. The custom engine's defaults are fitted to this (`width = thin + (thick − thin)·|sin(θ − nib)|^sharpness`, thin 1.35, thick 8.9, nib −10°, sharpness 3.5); `ParityTests` re-renders the reference strokes and gets 1.37 / 4.78 / 7.36 / 2.38 pt (→ ↘ ↓ ↗). Details: [spec](superpowers/specs/2026-10-22-fountain-pen-design.md).
 
 ## Comparison modes
 

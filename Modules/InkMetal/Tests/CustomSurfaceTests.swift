@@ -82,4 +82,42 @@ struct CustomSurfaceTests {
     @Test func pencilOnlyByDefault() {
         #expect(CustomSurface().allowsFingerDrawing == false)
     }
+
+    @Test func parameterChangeRebuildsCache() {
+        let surface = CustomSurface()
+        surface.cacheNeedsRebuild = false
+        surface.parameters.thickWidth = 5
+        #expect(surface.cacheNeedsRebuild)
+        #expect(surface.needsRender)
+    }
+
+    /// A stroke that finishes on a frame that can't present must still reach the page cache later.
+    @Test func finishedStrokeSurvivesFailedFrame() {
+        let surface = CustomSurface(frame: .zero)
+        surface.commitActiveStroke(stroke(0))
+        surface.renderIfNeeded()
+        #expect(surface.pendingAppends.count == 1)
+        #expect(surface.exportStrokes().count == 1)
+    }
+
+    @Test func resizeRequestsRebuild() {
+        let surface = CustomSurface(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        surface.traitOverrides.displayScale = 2
+        surface.updateTraitsIfNeeded()
+        surface.layoutIfNeeded()
+        surface.cacheNeedsRebuild = false
+        surface.frame = CGRect(x: 0, y: 0, width: 200, height: 500)
+        surface.layoutIfNeeded()
+        #expect(surface.cacheNeedsRebuild)
+    }
+
+    @Test func undoAndLoadRebuildCache() {
+        let surface = CustomSurface()
+        surface.cacheNeedsRebuild = false
+        surface.load([stroke(0), stroke(10)])
+        #expect(surface.cacheNeedsRebuild)
+        surface.cacheNeedsRebuild = false
+        surface.undo()
+        #expect(surface.cacheNeedsRebuild)
+    }
 }

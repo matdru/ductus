@@ -10,10 +10,19 @@ struct FeelLabView: View {
             SurfaceView(surface: model.activeView)
                 .ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .bottom) {
-                    if model.engine == .pencilKit {
-                        PencilKitToolBar(selection: $model.pencilKitTool)
-                            .padding(.bottom, 24)
+                    Group {
+                        switch model.engine {
+                        case .pencilKit:
+                            ToolStrip(
+                                items: PencilKitSurface.tools, selection: $model.pencilKitTool,
+                                title: \.displayName, systemImage: \.systemImage)
+                        case .custom:
+                            ToolStrip(
+                                items: CustomTool.allCases, selection: $model.customTool,
+                                title: \.displayName, systemImage: \.systemImage)
+                        }
                     }
+                    .padding(.bottom, 24)
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -62,19 +71,22 @@ struct FeelLabView: View {
     }
 }
 
-/// Always-visible strip of PencilKit inks and erasers, shown only on the PencilKit engine.
-private struct PencilKitToolBar: View {
-    @Binding var selection: PencilKitTool
+/// Always-visible strip of the active engine's tools.
+private struct ToolStrip<Item: Hashable>: View {
+    let items: [Item]
+    @Binding var selection: Item
+    let title: (Item) -> String
+    let systemImage: (Item) -> String
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(PencilKitSurface.tools, id: \.self) { tool in
+            ForEach(items, id: \.self) { tool in
                 Button {
                     selection = tool
                 } label: {
                     VStack(spacing: 4) {
-                        Image(systemName: tool.systemImage).font(.title3)
-                        Text(tool.displayName).font(.caption2)
+                        Image(systemName: systemImage(tool)).font(.title3)
+                        Text(title(tool)).font(.caption2)
                     }
                     .frame(width: 72, height: 52)
                     .foregroundStyle(selection == tool ? Color.white : Color.primary)

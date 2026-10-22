@@ -72,16 +72,20 @@ UITouch events (touchesBegan/Moved/Ended)
   ├─ coalescedTouches ──► committed samples ─┐
   └─ predictedTouches ──► predicted tail ────┤  StrokeBuilder
                                               ▼
-                     InkDocument.strokes + active builder
+     StrokePath.points — causal smoothing (StrokeSmoother) + per-point width (NibModel / tool width)
                                               ▼
-                  StrokeGeometry.triangles (InkVertex list)
+              StrokeMesh.vertices — one quad per segment (SegmentVertex)
                                               ▼
-           InkRenderer → CAMetalLayer, driven by CADisplayLink @ 120 Hz
+  InkRenderer: per stroke, capsule SDF → r8 coverage (max blend) → composite in the stroke colour
+     committed strokes → page cache texture;  frame = blit(cache) + active stroke → CAMetalLayer @ 120 Hz
 ```
 
-- Rendering only happens when something changed (`needsRender`).
-- `InkVertex` is 24 bytes and must match the shader's `packed_float2` + `packed_float4`; a test pins the stride.
-- The baseline is deliberately crude: constant width, no joins/caps, all geometry rebuilt per frame. Pressure, smoothing, tiling and latency tuning are Phase 0 work.
+- Rendering only happens when something changed (`needsRender`). Finished strokes are composited onto the cache once (`pendingAppends`); undo, clear, load, resize and `parameters` changes rebuild the cache from `InkDocument`.
+- Everything in `StrokePath` is causal, so the predicted tail never alters the committed prefix and a stroke doesn't change shape at pen-up. Smoothing lag is capped at 0.5 pt, and the path always ends at the latest raw sample.
+- Antialiasing is analytic: the fragment shader computes the signed distance to an "uneven capsule" (two radii) per segment, so joins and caps are round and sharp turns have no gaps.
+- Coverage is max-blended per stroke, then composited, so a stroke's self-overlaps never darken. This composite step is where paper/ink effects can plug in later.
+- `InkParameters` holds all tunables (fountain nib, pressure/speed response, smoothing, prediction, baseline toggle). The fountain nib is direction-driven, fitted to PencilKit (see [the spec](superpowers/specs/2026-10-22-fountain-pen-design.md)); `ParityTests` re-renders the reference strokes in `docs/phase-0-data/` and checks widths.
+- The original constant-width quads (`StrokeGeometry`, `InkVertex`, 24 bytes) remain behind the "baseline renderer" toggle. `SegmentVertex` is 32 bytes and must match the shader's `SegmentIn`; tests pin both strides.
 
 ## PencilKit engine (InkPencilKit)
 
@@ -117,3 +121,7 @@ mise run format       # swift-format in place
 | 2026-10-06 | `clear()` not undoable on either engine; `undo()` removes the last stroke |
 | 2026-10-06 | No `tuist install` — no external dependencies |
 | 2026-10-06 | `InkDocument` (in-memory op log) lives in InkCore |
+| 2026-10-22 | Custom strokes: capsule SDF segments → per-stroke coverage (max blend) → composite |
+| 2026-10-22 | Committed strokes cached in a page texture; only the active stroke redraws per frame |
+| 2026-10-22 | Causal one-euro smoothing, lag capped at 0.5 pt; path ends at the latest raw sample |
+| 2026-10-22 | Fountain pen: direction-driven nib fitted to PencilKit; pressure/speed effects default to 0 |

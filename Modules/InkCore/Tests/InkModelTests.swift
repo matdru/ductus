@@ -24,4 +24,11 @@ struct InkModelTests {
         #expect(InkTool.defaultPen.color == .black)
         #expect(InkTool.defaultPen.width > 0)
     }
+
+    @Test func fountainPenToolRoundTripsThroughCodable() throws {
+        let data = try JSONEncoder().encode(InkTool.fountainPen)
+        let decoded = try JSONDecoder().decode(InkTool.self, from: data)
+        #expect(decoded == .fountainPen)
+        #expect(decoded.kind == .fountainPen)
+    }
 }

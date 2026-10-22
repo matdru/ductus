@@ -2,8 +2,8 @@ import InkCore
 import QuartzCore
 import UIKit
 
-/// Custom engine: coalesced + predicted UITouch samples → StrokeBuilder → StrokeGeometry → Metal.
-/// Deliberately crude baseline; latency tuning (drawable count, present timing, smoothing) is Phase 0 work.
+/// Custom engine: coalesced + predicted UITouch samples → StrokeBuilder → StrokePath → StrokeMesh → Metal.
+/// Committed strokes are drawn once into the renderer's page cache; each frame adds only the active stroke.
 @MainActor
 public final class CustomSurface: UIView, InkSurface {
     public override static var layerClass: AnyClass { CAMetalLayer.self }
@@ -14,11 +14,23 @@ public final class CustomSurface: UIView, InkSurface {
 
     private let renderer = InkRenderer()
     private var document = InkDocument()
-    private var tool = InkTool.defaultPen
+    public private(set) var tool = InkTool.defaultPen
     private var activeTouch: UITouch?
     private var activeBuilder: StrokeBuilder?
     private var displayLink: CADisplayLink?
     private(set) var needsRender = true
+
+    public var parameters = InkParameters.defaults {
+        didSet {
+            cacheNeedsRebuild = true
+            setNeedsRender()
+        }
+    }
+
+    /// Strokes finished since the last presented frame, still to be composited onto the page cache.
+    private(set) var pendingAppends: [Stroke] = []
+    /// The page cache must be redrawn from `document` (undo, clear, load, resize, parameter change).
+    var cacheNeedsRebuild = true
 
     public override init(frame: CGRect = .zero) {
         super.init(frame: frame)
@@ -28,7 +40,8 @@ public final class CustomSurface: UIView, InkSurface {
         backgroundColor = .white
         metalLayer.device = renderer?.device
         metalLayer.pixelFormat = InkRenderer.pixelFormat
-        metalLayer.framebufferOnly = true
+        // The page cache is blitted into the drawable.
+        metalLayer.framebufferOnly = false
         registerForTraitChanges([UITraitDisplayScale.self]) { (surface: CustomSurface, _: UITraitCollection) in
             surface.setNeedsLayout()
         }
@@ -41,12 +54,12 @@ public final class CustomSurface: UIView, InkSurface {
 
     public func clear() {
         document = InkDocument()
-        setNeedsRender()
+        invalidateCache()
     }
 
     public func undo() {
         document.undo()
-        setNeedsRender()
+        invalidateCache()
     }
 
     public func setTool(_ tool: InkTool) {
@@ -58,7 +71,7 @@ public final class CustomSurface: UIView, InkSurface {
         for stroke in strokes {
             document.apply(.addStroke(stroke))
         }
-        setNeedsRender()
+        invalidateCache()
     }
 
     public func exportStrokes() -> [Stroke] {
@@ -74,7 +87,11 @@ public final class CustomSurface: UIView, InkSurface {
         let displayScale = traitCollection.displayScale
         let scale = displayScale > 0 ? displayScale : contentScaleFactor
         metalLayer.contentsScale = scale
-        metalLayer.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
+        let drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
+        if metalLayer.drawableSize != drawableSize {
+            metalLayer.drawableSize = drawableSize
+            cacheNeedsRebuild = true
+        }
         setNeedsRender()
     }
 
@@ -93,18 +110,55 @@ public final class CustomSurface: UIView, InkSurface {
         needsRender = true
     }
 
+    private func invalidateCache() {
+        cacheNeedsRebuild = true
+        setNeedsRender()
+    }
+
     @objc private func step(_ link: CADisplayLink) {
         renderIfNeeded()
     }
 
     func renderIfNeeded() {
         guard needsRender, let renderer else { return }
+        if parameters.baselineRenderer {
+            renderBaseline(with: renderer)
+            return
+        }
+        let rebuild = cacheNeedsRebuild || renderer.needsRebuild ? document.strokes.map(drawStroke) : nil
+        let append = rebuild == nil ? pendingAppends.map(drawStroke) : []
+        let active = activeBuilder.map { builder in
+            DrawStroke(
+                path: StrokePath.points(
+                    committed: builder.committed, predicted: parameters.predictionEnabled ? builder.predicted : [],
+                    tool: builder.tool, parameters: parameters),
+                color: builder.tool.color)
+        }
+        let frame = InkRenderer.Frame(rebuild: rebuild, append: append, active: active)
+        if renderer.render(frame, to: metalLayer, viewportSize: bounds.size, scale: metalLayer.contentsScale) {
+            needsRender = false
+            cacheNeedsRebuild = false
+            pendingAppends = []
+        }
+    }
+
+    private func drawStroke(_ stroke: Stroke) -> DrawStroke {
+        DrawStroke(
+            path: StrokePath.points(
+                committed: stroke.samples, predicted: [], tool: stroke.tool, parameters: parameters),
+            color: stroke.tool.color)
+    }
+
+    /// Today's original constant-width quads, kept for before/after comparison.
+    private func renderBaseline(with renderer: InkRenderer) {
         var vertices = document.strokes.flatMap { StrokeGeometry.triangles(for: $0.samples, tool: $0.tool) }
         if let builder = activeBuilder {
-            vertices += StrokeGeometry.triangles(for: builder.displaySamples, tool: builder.tool)
+            let samples = parameters.predictionEnabled ? builder.displaySamples : builder.committed
+            vertices += StrokeGeometry.triangles(for: samples, tool: builder.tool)
         }
-        if renderer.render(vertices: vertices, to: metalLayer, viewportSize: bounds.size) {
+        if renderer.renderBaseline(vertices: vertices, to: metalLayer, viewportSize: bounds.size) {
             needsRender = false
+            pendingAppends = []
         }
     }
 
@@ -134,7 +188,7 @@ public final class CustomSurface: UIView, InkSurface {
         guard let touch = activeTouch, touches.contains(touch) else { return }
         ingest(touch, event: event, includePredictions: false)
         if let stroke = activeBuilder?.finish() {
-            document.apply(.addStroke(stroke))
+            commitActiveStroke(stroke)
         }
         endActiveStroke()
     }
@@ -142,6 +196,12 @@ public final class CustomSurface: UIView, InkSurface {
     public override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = activeTouch, touches.contains(touch) else { return }
         endActiveStroke()
+    }
+
+    func commitActiveStroke(_ stroke: Stroke) {
+        document.apply(.addStroke(stroke))
+        pendingAppends.append(stroke)
+        setNeedsRender()
     }
 
     private func endActiveStroke() {

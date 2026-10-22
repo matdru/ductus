@@ -63,4 +63,16 @@ struct FeelLabModelTests {
         #expect(dump.strokes.count == 1)
         #expect(url.lastPathComponent.hasPrefix("strokes-"))
     }
+
+    @Test func customToolDefaultsToFountain() {
+        let model = FeelLabModel(allowsFingerDrawing: false)
+        #expect(model.customTool == .fountainPen)
+        #expect(model.customSurface.tool == .fountainPen)
+    }
+
+    @Test func customToolReachesTheSurface() {
+        let model = FeelLabModel(allowsFingerDrawing: false)
+        model.customTool = .pen
+        #expect(model.customSurface.tool == .defaultPen)
+    }
 }

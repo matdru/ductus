@@ -48,4 +48,11 @@ struct StrokeConversionTests {
         let pk = try #require(StrokeConversion.pkStroke(from: Stroke(tool: tool, samples: [sample(5, t: 0)])))
         #expect(StrokeConversion.stroke(from: pk).samples.count == 1)
     }
+
+    @Test func fountainPenMapsToPencilKitFountainPen() throws {
+        let pk = try #require(
+            StrokeConversion.pkStroke(from: Stroke(tool: .fountainPen, samples: [sample(1, t: 0), sample(2, t: 0.01)])))
+        #expect(pk.ink.inkType == .fountainPen)
+        #expect(StrokeConversion.stroke(from: pk).tool.kind == .fountainPen)
+    }
 }

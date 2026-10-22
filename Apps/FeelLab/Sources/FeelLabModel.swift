@@ -12,6 +12,32 @@ enum Engine: String, CaseIterable, Identifiable {
     var id: Self { self }
 }
 
+enum CustomTool: CaseIterable, Hashable {
+    case pen
+    case fountainPen
+
+    var displayName: String {
+        switch self {
+        case .pen: "Pen"
+        case .fountainPen: "Fountain"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .pen: "pencil.tip"
+        case .fountainPen: "pencil.and.scribble"
+        }
+    }
+
+    var inkTool: InkTool {
+        switch self {
+        case .pen: .defaultPen
+        case .fountainPen: .fountainPen
+        }
+    }
+}
+
 enum ComparisonMode: String, CaseIterable, Identifiable {
     case single = "Single"
     case split = "Split"
@@ -40,10 +66,14 @@ final class FeelLabModel {
     }
     let pencilKitSurface = PencilKitSurface()
     let customSurface = CustomSurface()
+    var customTool: CustomTool = .fountainPen {
+        didSet { customSurface.setTool(customTool.inkTool) }
+    }
 
     init(allowsFingerDrawing: Bool = FeelLabModel.isSimulator) {
         pencilKitSurface.allowsFingerDrawing = allowsFingerDrawing
         customSurface.allowsFingerDrawing = allowsFingerDrawing
+        customSurface.setTool(customTool.inkTool)
     }
 
     /// Saves the PencilKit page's raw points as JSON and returns the file. On device, pull it with

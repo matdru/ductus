@@ -31,13 +31,24 @@ public enum StrokeConversion {
                 altitude: point.altitude, azimuth: point.azimuth, timestamp: point.timeOffset)
         }
         let width = pkStroke.path.first.map { Double($0.size.width) } ?? InkTool.defaultPen.width
-        let kind: InkTool.Kind = pkStroke.ink.inkType == .marker ? .highlighter : .pen
+        let kind: InkTool.Kind =
+            switch pkStroke.ink.inkType {
+            case .marker: .highlighter
+            case .fountainPen: .fountainPen
+            default: .pen
+            }
         return Stroke(
             id: id, tool: InkTool(kind: kind, color: InkColor(pkStroke.ink.color), width: width), samples: samples)
     }
 
     static func ink(for tool: InkTool) -> PKInk {
-        PKInk(tool.kind == .highlighter ? .marker : .pen, color: UIColor(tool.color))
+        let type: PKInk.InkType =
+            switch tool.kind {
+            case .pen: .pen
+            case .highlighter: .marker
+            case .fountainPen: .fountainPen
+            }
+        return PKInk(type, color: UIColor(tool.color))
     }
 }
 
