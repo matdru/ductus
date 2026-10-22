@@ -1,3 +1,4 @@
+import Foundation
 import InkCore
 import InkMetal
 import InkPencilKit
@@ -43,6 +44,18 @@ final class FeelLabModel {
     init(allowsFingerDrawing: Bool = FeelLabModel.isSimulator) {
         pencilKitSurface.allowsFingerDrawing = allowsFingerDrawing
         customSurface.allowsFingerDrawing = allowsFingerDrawing
+    }
+
+    /// Saves the PencilKit page's raw points as JSON and returns the file. On device, pull it with
+    /// `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier app.ductus.feellab`.
+    func exportPencilKitStrokes(to directory: URL = .documentsDirectory, now: Date = .now) throws -> URL {
+        let dump = StrokeDump(drawing: pencilKitSurface.canvasView.drawing)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let stamp = now.formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false))
+        let url = directory.appending(path: "strokes-\(stamp.replacingOccurrences(of: ":", with: "")).json")
+        try encoder.encode(dump).write(to: url)
+        return url
     }
 
     var activeSurface: any InkSurface {

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct FeelLabView: View {
     @State private var model = FeelLabModel()
+    @State private var exportMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -36,10 +37,27 @@ struct FeelLabView: View {
                         .frame(width: 260)
                     }
                     ToolbarItemGroup(placement: .topBarTrailing) {
+                        if model.engine == .pencilKit {
+                            Button("Export Strokes", systemImage: "square.and.arrow.down") { exportStrokes() }
+                        }
                         Button("Undo", systemImage: "arrow.uturn.backward") { model.activeSurface.undo() }
                         Button("Clear", systemImage: "trash") { model.activeSurface.clear() }
                     }
                 }
+                .alert(
+                    exportMessage ?? "",
+                    isPresented: .init(get: { exportMessage != nil }, set: { _ in exportMessage = nil })
+                ) {}
+        }
+    }
+
+    private func exportStrokes() {
+        do {
+            let url = try model.exportPencilKitStrokes()
+            let count = model.pencilKitSurface.canvasView.drawing.strokes.count
+            exportMessage = "Saved \(count) strokes to \(url.lastPathComponent)"
+        } catch {
+            exportMessage = "Export failed: \(error.localizedDescription)"
         }
     }
 }

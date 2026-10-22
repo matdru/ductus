@@ -1,4 +1,6 @@
+import Foundation
 import InkCore
+import InkPencilKit
 import PencilKit
 import Testing
 
@@ -39,5 +41,26 @@ struct FeelLabModelTests {
         let model = FeelLabModel(allowsFingerDrawing: false)
         model.pencilKitTool = .eraser(.bitmap)
         #expect(model.pencilKitSurface.selectedTool == .eraser(.bitmap))
+    }
+
+    @Test func exportWritesThePencilKitStrokesAsJSON() throws {
+        let model = FeelLabModel(allowsFingerDrawing: false)
+        model.pencilKitSurface.load([
+            Stroke(
+                tool: .defaultPen,
+                samples: [
+                    StrokeSample(x: 0, y: 0, force: 1, altitude: 1, azimuth: 0, timestamp: 0),
+                    StrokeSample(x: 10, y: 10, force: 1, altitude: 1, azimuth: 0, timestamp: 0.01),
+                ])
+        ])
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let url = try model.exportPencilKitStrokes(to: directory)
+
+        let dump = try JSONDecoder().decode(StrokeDump.self, from: Data(contentsOf: url))
+        #expect(dump.strokes.count == 1)
+        #expect(url.lastPathComponent.hasPrefix("strokes-"))
     }
 }
