@@ -1,3 +1,4 @@
+import InkPencilKit
 import SwiftUI
 
 struct FeelLabView: View {
@@ -7,6 +8,12 @@ struct FeelLabView: View {
         NavigationStack {
             SurfaceView(surface: model.activeView)
                 .ignoresSafeArea(edges: .bottom)
+                .overlay(alignment: .bottom) {
+                    if model.engine == .pencilKit {
+                        PencilKitToolBar(selection: $model.pencilKitTool)
+                            .padding(.bottom, 24)
+                    }
+                }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -34,5 +41,31 @@ struct FeelLabView: View {
                     }
                 }
         }
+    }
+}
+
+/// Always-visible strip of PencilKit inks and erasers, shown only on the PencilKit engine.
+private struct PencilKitToolBar: View {
+    @Binding var selection: PencilKitTool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(PencilKitSurface.tools, id: \.self) { tool in
+                Button {
+                    selection = tool
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: tool.systemImage).font(.title3)
+                        Text(tool.displayName).font(.caption2)
+                    }
+                    .frame(width: 72, height: 52)
+                    .foregroundStyle(selection == tool ? Color.white : Color.primary)
+                    .background(selection == tool ? Color.accentColor : .clear, in: .rect(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .glassEffect(in: .rect(cornerRadius: 18))
     }
 }

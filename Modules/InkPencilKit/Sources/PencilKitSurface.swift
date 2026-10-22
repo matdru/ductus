@@ -7,6 +7,18 @@ import UIKit
 public final class PencilKitSurface: UIView, InkSurface {
     public let canvasView = PKCanvasView()
 
+    /// PencilKit's built-in inks and erasers, for exploring them in Feel Lab.
+    public static let tools: [PencilKitTool] =
+        [PKInk.InkType.pen, .pencil, .marker, .monoline, .fountainPen, .watercolor, .crayon, .reed].map(
+            PencilKitTool.ink) + [.eraser(.bitmap), .eraser(.vector)]
+
+    /// Pen inks and erasers replace the pen; a highlighter `InkTool` always draws `.marker`.
+    public var selectedTool: PencilKitTool = .ink(.pen) {
+        didSet { applyTool() }
+    }
+
+    private var tool = InkTool.defaultPen
+
     public var allowsFingerDrawing = false {
         didSet { canvasView.drawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly }
     }
@@ -39,8 +51,22 @@ public final class PencilKitSurface: UIView, InkSurface {
     }
 
     public func setTool(_ tool: InkTool) {
-        canvasView.tool = PKInkingTool(
-            tool.kind == .highlighter ? .marker : .pen, color: UIColor(tool.color), width: tool.width)
+        self.tool = tool
+        applyTool()
+    }
+
+    /// `.pen` keeps the tool's width so it matches the custom engine; other inks use Apple's default width.
+    private func applyTool() {
+        let inkType: PKInk.InkType
+        switch selectedTool {
+        case .ink(let selected): inkType = selected
+        case .eraser(let eraserType):
+            canvasView.tool = PKEraserTool(eraserType)
+            return
+        }
+        let type: PKInk.InkType = tool.kind == .highlighter ? .marker : inkType
+        let width = tool.kind == .highlighter || type == .pen ? tool.width : type.defaultWidth
+        canvasView.tool = PKInkingTool(type, color: UIColor(tool.color), width: width)
     }
 
     public func load(_ strokes: [Stroke]) {
@@ -50,4 +76,10 @@ public final class PencilKitSurface: UIView, InkSurface {
     public func exportStrokes() -> [Stroke] {
         canvasView.drawing.strokes.map { StrokeConversion.stroke(from: $0) }
     }
+}
+
+public enum PencilKitTool: Hashable {
+    case ink(PKInk.InkType)
+    /// `.bitmap` erases the pixels it touches; `.vector` removes whole strokes.
+    case eraser(PKEraserTool.EraserType)
 }

@@ -58,4 +58,38 @@ struct PencilKitSurfaceTests {
         #expect(tool.inkType == .marker)
         #expect(abs(tool.width - 12) < 1e-3)
     }
+
+    @Test func inkTypeUsesThatTypesDefaultWidth() throws {
+        let surface = PencilKitSurface()
+        surface.selectedTool = .ink(.fountainPen)
+        let tool = try #require(surface.canvasView.tool as? PKInkingTool)
+        #expect(tool.inkType == .fountainPen)
+        #expect(abs(tool.width - PKInk.InkType.fountainPen.defaultWidth) < 1e-3)
+    }
+
+    @Test func penInkKeepsTheToolWidthSoEnginesCompareFairly() throws {
+        let surface = PencilKitSurface()
+        surface.selectedTool = .ink(.pencil)
+        surface.selectedTool = .ink(.pen)
+        let tool = try #require(surface.canvasView.tool as? PKInkingTool)
+        #expect(tool.inkType == .pen)
+        #expect(abs(tool.width - InkTool.defaultPen.width) < 1e-3)
+    }
+
+    @Test func highlighterStaysMarkerWhateverTheInkType() throws {
+        let surface = PencilKitSurface()
+        surface.selectedTool = .ink(.crayon)
+        surface.setTool(InkTool(kind: .highlighter, color: .black, width: 12))
+        let tool = try #require(surface.canvasView.tool as? PKInkingTool)
+        #expect(tool.inkType == .marker)
+    }
+
+    @Test func eraserReplacesTheInkingTool() throws {
+        let surface = PencilKitSurface()
+        surface.selectedTool = .eraser(.vector)
+        let eraser = try #require(surface.canvasView.tool as? PKEraserTool)
+        #expect(eraser.eraserType == .vector)
+        surface.selectedTool = .ink(.pencil)
+        #expect((surface.canvasView.tool as? PKInkingTool)?.inkType == .pencil)
+    }
 }

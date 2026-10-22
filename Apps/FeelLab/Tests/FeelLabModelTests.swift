@@ -1,4 +1,5 @@
 import InkCore
+import PencilKit
 import Testing
 
 @testable import FeelLab
@@ -32,5 +33,11 @@ struct FeelLabModelTests {
         model.engine = .pencilKit
         model.engine = .custom
         #expect(model.activeSurface.exportStrokes() == [stroke])
+    }
+
+    @Test func pencilKitToolReachesTheSurface() {
+        let model = FeelLabModel(allowsFingerDrawing: false)
+        model.pencilKitTool = .eraser(.bitmap)
+        #expect(model.pencilKitSurface.selectedTool == .eraser(.bitmap))
     }
 }
