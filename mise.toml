@@ -20,3 +20,21 @@ run = [
 [tasks.format]
 description = "Format all Swift sources in place"
 run = "xcrun swift-format format --in-place --recursive Apps Modules Project.swift Tuist.swift"
+
+[tasks.device]
+description = "Build, sign, install and launch an app on a connected iPad (needs DUCTUS_TEAM, DUCTUS_DEVICE in mise.local.toml)"
+usage = 'arg "[app]" default="FeelLab" help="FeelLab or Ductus"'
+run = """
+set -euo pipefail
+: "${DUCTUS_TEAM:?set DUCTUS_TEAM in mise.local.toml}"
+: "${DUCTUS_DEVICE:?set DUCTUS_DEVICE (UDID from 'xcrun devicectl list devices') in mise.local.toml}"
+app="${usage_app}"
+xcodebuild -workspace Ductus.xcworkspace -scheme "$app" -configuration Debug \
+  -destination "platform=iOS,id=$DUCTUS_DEVICE" -derivedDataPath .build/device \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM="$DUCTUS_TEAM" CODE_SIGN_STYLE=Automatic \
+  build -quiet
+bundle=".build/device/Build/Products/Debug-iphoneos/$app.app"
+xcrun devicectl device install app --device "$DUCTUS_DEVICE" "$bundle"
+xcrun devicectl device process launch --device "$DUCTUS_DEVICE" \
+  "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist")"
+"""
