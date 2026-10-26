@@ -28,6 +28,16 @@ struct TuningPanel: View {
             } footer: {
                 Text("More smoothing = ink trails further behind the tip.")
             }
+            Section {
+                slider("Steadiness", \.steadiness, 0...15, unit: "pt")
+                slider("Trail", \.trail, 0...6, unit: "pt")
+            } header: {
+                Text("Steady hand")
+            } footer: {
+                Text(
+                    "Steadiness irons out wobbles smaller than its spacing; the last bit of a stroke settles as you "
+                        + "write. Trail absorbs tremor near the nib. 0 turns either off.")
+            }
             Section("Engine") {
                 Toggle("Prediction", isOn: $model.parameters.predictionEnabled)
                 Toggle("Baseline renderer (before)", isOn: $model.parameters.baselineRenderer)

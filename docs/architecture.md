@@ -72,7 +72,7 @@ UITouch events (touchesBegan/Moved/Ended)
   ├─ coalescedTouches ──► committed samples ─┐
   └─ predictedTouches ──► predicted tail ────┤  StrokeBuilder
                                               ▼
-     StrokePath.points — causal smoothing (StrokeSmoother) + per-point width (NibModel / tool width)
+     StrokePath.points — causal smoothing (StrokeSmoother) + steady hand (StrokeSteadier) + per-point width (NibModel / tool width)
                                               ▼
               StrokeMesh.vertices — one quad per segment (SegmentVertex)
                                               ▼
@@ -81,7 +81,8 @@ UITouch events (touchesBegan/Moved/Ended)
 ```
 
 - Rendering only happens when something changed (`needsRender`). Finished strokes are composited onto the cache once (`pendingAppends`); undo, clear, load, resize and `parameters` changes rebuild the cache from `InkDocument`.
-- Everything in `StrokePath` is causal, so the predicted tail never alters the committed prefix and a stroke doesn't change shape at pen-up. Smoothing lag is capped at 0.5 pt, and the path always ends at the latest raw sample.
+- Everything in `StrokePath` is causal, so a stroke doesn't change shape at pen-up. Smoothing lag is capped at 0.5 pt, and the path always ends at the latest raw sample.
+- `StrokeSteadier` follows the pen on a short leash (`trail`), keeps a point every `steadiness` points and draws a uniform cubic B-spline through them, as PencilKit does. Only the last two knot spans plus the leash are provisional; prediction can reshape them, nothing else.
 - Antialiasing is analytic: the fragment shader computes the signed distance to an "uneven capsule" (two radii) per segment, so joins and caps are round and sharp turns have no gaps.
 - Coverage is max-blended per stroke, then composited, so a stroke's self-overlaps never darken. This composite step is where paper/ink effects can plug in later.
 - `InkParameters` holds all tunables (fountain nib, pressure/speed response, smoothing, prediction, baseline toggle). The fountain nib is direction-driven, fitted to PencilKit (see [the spec](superpowers/specs/2026-10-22-fountain-pen-design.md)); `ParityTests` re-renders the reference strokes in `docs/phase-0-data/` and checks widths.
@@ -124,4 +125,5 @@ mise run format       # swift-format in place
 | 2026-10-22 | Custom strokes: capsule SDF segments → per-stroke coverage (max blend) → composite |
 | 2026-10-22 | Committed strokes cached in a page texture; only the active stroke redraws per frame |
 | 2026-10-22 | Causal one-euro smoothing, lag capped at 0.5 pt; path ends at the latest raw sample |
+| 2026-10-26 | Steady hand: leash + decimated B-spline after PencilKit; last ~12 pt of a live stroke settle as you write |
 | 2026-10-22 | Fountain pen: direction-driven nib fitted to PencilKit; pressure/speed effects default to 0 |

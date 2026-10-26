@@ -17,20 +17,23 @@ public struct PathPoint: Sendable, Equatable {
     }
 }
 
-/// Samples → smoothed, width-annotated path. Everything is causal: a point depends only on samples up to
-/// it, so prediction never changes the committed prefix and pen-up never changes the stroke's shape.
+/// Samples → smoothed, steadied, width-annotated path. Everything is causal: a point depends only on samples up to
+/// it, so prediction only reshapes the steadied tail and pen-up never changes the stroke's shape.
 public enum StrokePath {
     /// Direction and speed are measured over a chord at least this long, so jitter doesn't swing the nib.
     static let minimumChord = 1.5
 
-    /// Pure function: same inputs → same output. `predicted` extends the path without changing the committed prefix.
+    /// Pure function: same inputs → same output. `predicted` extends the path; with steadying on it may also
+    /// reshape the last two knot spans, which are provisional anyway.
     public static func points(
         committed: [StrokeSample], predicted: [StrokeSample], tool: InkTool, parameters: InkParameters
     ) -> [PathPoint] {
         var smoother = StrokeSmoother(strength: parameters.smoothing)
         let smoothedCommitted = committed.map { smoother.add($0) }
         var predictionSmoother = smoother
-        let samples = smoothedCommitted + predicted.map { predictionSmoother.add($0) }
+        let samples = StrokeSteadier.points(
+            smoothedCommitted + predicted.map { predictionSmoother.add($0) },
+            spacing: parameters.steadiness, trail: parameters.trail)
         guard let rawLast = predicted.last ?? committed.last, let last = samples.last else { return [] }
 
         guard tool.kind == .fountainPen else {

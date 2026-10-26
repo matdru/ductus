@@ -78,6 +78,22 @@ Findings:
 - **Parity tolerance.** The parity check compares against 1.3 / 5.2 / 7.8 / 2.2 pt (→ ↘ ↓ ↗) with a tolerance of **±0.75 pt**. The fitted defaults pass. If the builder refits for a closer match, the refit becomes the new default, documented here.
 - **Starting point and commits.** Checkpoint 0 commits the work already in the tree (stroke export, reference data, this spec) before implementation starts. Commits go straight to `master` and are pushed to `origin/master`, matching the repo's history so far. Every commit and push waits for the author's go-ahead.
 
+## Amendment 2026-10-26: steady hand (author approved the mixed approach)
+
+The author found that PencilKit turns a lazy scribble into a clean line, and wants the same in the custom engine, especially for people with slightly shaky hands. PencilKit keeps few points: the reference export has about 17 points per stroke, a median of 15 pt (about 25 ms) apart, and it draws a smooth B-spline through them.
+
+The custom engine now does both of the following, after the light one-euro smoothing:
+
+- **Trail (leash):** the smoothed ink follows the pen on a leash of `trail` points (default 2.5). Tremor inside the leash is absorbed. A straight segment still runs from the end of the smoothed ink to the raw tip, so the ink always reaches the nib.
+- **Steadiness:** the engine keeps a point every `steadiness` points (default 6, Claude's call: PencilKit's 10th percentile, which keeps small letters intact) and draws a uniform cubic B-spline through the kept points. Fountain width comes from the steadied direction, so tremor no longer flickers the width.
+
+This loosens two anti-goals, deliberately:
+
+- **Lag:** the smoothed ink trails the tip by up to `trail` points, but the raw-tip segment keeps ink under the nib.
+- **Shape change:** the last two knot spans (about 12 pt plus the trail) are provisional and settle as new samples arrive, including predicted ones. Pen-up still changes nothing except dropping the prediction: the committed stroke is the same function of the same samples.
+
+Both at 0 reproduce the previous behaviour exactly.
+
 ## Tuning panel (custom tab only)
 
 A panel that slides in from the side over the page, live-applying every change. Starting set (the builder may regroup or rename):

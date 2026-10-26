@@ -24,18 +24,60 @@ struct StrokePathTests {
         }
     }
 
-    func points(_ committed: [StrokeSample], _ predicted: [StrokeSample] = [], tool: InkTool = .fountainPen)
-        -> [PathPoint]
-    {
-        StrokePath.points(committed: committed, predicted: predicted, tool: tool, parameters: .defaults)
+    /// Defaults with hand-steadying off, so path points line up one-to-one with samples.
+    static let unsteadied: InkParameters = {
+        var parameters = InkParameters.defaults
+        parameters.steadiness = 0
+        parameters.trail = 0
+        return parameters
+    }()
+
+    func points(
+        _ committed: [StrokeSample], _ predicted: [StrokeSample] = [], tool: InkTool = .fountainPen,
+        parameters: InkParameters = .defaults
+    ) -> [PathPoint] {
+        StrokePath.points(committed: committed, predicted: predicted, tool: tool, parameters: parameters)
     }
 
     @Test func predictionNeverChangesCommittedPrefix() {
         let committed = arc(0..<60)
         let predicted = arc(60..<70)
-        let live = points(committed, predicted)
-        let final = points(committed)
+        let live = points(committed, predicted, parameters: Self.unsteadied)
+        let final = points(committed, parameters: Self.unsteadied)
         #expect(Array(live.prefix(committed.count)) == Array(final.prefix(committed.count)))
+    }
+
+    @Test func steadiedPredictionOnlyChangesTheTail() throws {
+        let committed = arc(0..<60)
+        let live = points(committed, arc(60..<70))
+        let final = points(committed)
+        let end = try #require(final.last)
+        let settled = final.prefix { hypot($0.x - end.x, $0.y - end.y) > 20 }
+        #expect(settled.count > 10)
+        #expect(Array(live.prefix(settled.count)) == Array(settled))
+    }
+
+    /// Slow vertical stroke with a 10 Hz, ±1 pt sideways tremor.
+    func shakyVertical() -> [StrokeSample] {
+        (0..<480).map { i in
+            let t = Double(i) / 240
+            return sample(50 + sin(2 * .pi * 10 * t), 20 + 80 * t, i)
+        }
+    }
+
+    @Test func steadyingStopsTremorFlickeringFountainWidth() {
+        func spread(_ path: [PathPoint]) -> Double {
+            let widths = path.filter { $0.y > 60 && $0.y < 160 }.map(\.width)
+            return (widths.max() ?? 0) - (widths.min() ?? 0)
+        }
+        #expect(spread(points(shakyVertical(), parameters: Self.unsteadied)) > 2)
+        #expect(spread(points(shakyVertical())) < 0.75)
+    }
+
+    @Test func steadyingAppliesToThePen() {
+        let path = points(shakyVertical(), tool: .defaultPen).filter { $0.y > 60 && $0.y < 160 }
+        #expect(!path.isEmpty)
+        #expect(path.allSatisfy { abs($0.x - 50) < 0.35 })
     }
 
     @Test func endsAtLatestRawSample() throws {
@@ -61,7 +103,7 @@ struct StrokePathTests {
     @Test func stationaryPenHoldsWidth() {
         let moving = line(from: (50, 0), to: (50, 20), count: 21)
         let held = (21..<51).map { sample(50, 20, $0) }
-        let path = points(moving + held)
+        let path = points(moving + held, parameters: Self.unsteadied)
         let before = path[20].width
         for point in path[21..<(moving.count + held.count)] { #expect(abs(point.width - before) < 1e-9) }
     }
