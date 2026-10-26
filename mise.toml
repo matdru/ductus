@@ -29,6 +29,8 @@ set -euo pipefail
 : "${DUCTUS_TEAM:?set DUCTUS_TEAM in mise.local.toml}"
 : "${DUCTUS_DEVICE:?set DUCTUS_DEVICE (UDID from 'xcrun devicectl list devices') in mise.local.toml}"
 app="${usage_app}"
+# `tuist test` regenerates without schemes for apps that have no tests, so regenerate first.
+tuist generate --no-open > /dev/null
 xcodebuild -workspace Ductus.xcworkspace -scheme "$app" -configuration Debug \
   -destination "platform=iOS,id=$DUCTUS_DEVICE" -derivedDataPath .build/device \
   -allowProvisioningUpdates DEVELOPMENT_TEAM="$DUCTUS_TEAM" CODE_SIGN_STYLE=Automatic \

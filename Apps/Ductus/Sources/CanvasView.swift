@@ -1,7 +1,7 @@
 import InkPencilKit
 import SwiftUI
 
-/// Hosts the ink engine. PencilKit until Phase 0 picks the winner; swap behind InkSurface.
+/// Hosts a PencilKit page.
 struct CanvasView: UIViewRepresentable {
     func makeUIView(context: Context) -> PencilKitSurface {
         let surface = PencilKitSurface()
