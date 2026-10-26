@@ -9,6 +9,7 @@ A living document: update it when the code's shape changes. Detailed design hist
 | UI | SwiftUI app shell; ink via PencilKit (`PKCanvasView` in UIKit), hosted via `UIViewRepresentable` | Phase 0 chose PencilKit; SwiftUI has no native canvas with PencilKit's control |
 | Language | Swift 6 language mode, strict concurrency | New codebase, no migration cost |
 | Platform | iPadOS 26+, iPad only | ~N-1 at expected launch; modern SwiftUI/Observation; Pencil Pro APIs |
+| Performance budget | Measured on the author's iPad Pro 11" (M2); every target must hold with **3× headroom** there | No base iPad to test on. The oldest iPads on iPadOS 26 (A12-class, ~3 GB RAM, 60 Hz, 1st-gen Pencil) are roughly 2–4× slower; TestFlight testers and MetricKit cover real old devices |
 | Project | Tuist (`Project.swift`); generated `.xcodeproj`/`.xcworkspace` are gitignored | No project-file merge conflicts; clean multi-app + shared-module graph |
 | Tooling | mise pins Tuist and SwiftLint; tasks for generate/test/lint/format | One-command setup |
 | Tests | Swift Testing for unit tests; XCTest only for UI/perf | Current Apple default |
@@ -153,5 +154,6 @@ mise run format       # swift-format in place
 | 2026-10-22 | Fountain pen: direction-driven nib fitted to PencilKit; pressure/speed effects default to 0 |
 | 2026-10-26 | **Ink engine: PencilKit.** Custom Metal engine and FeelLab parked (still built and tested, not used by Ductus) |
 | 2026-10-26 | Planning moves to Linear (project Ductus); `docs/roadmap.md` mirrors its milestones |
+| 2026-10-26 | Minimum iPadOS 26; performance targets met on M2 with 3× headroom (no base iPad available) |
 | 2026-10-26 | Notebook storage: package per notebook, `PKDrawing` data per page, atomic writes; `NotebookCore` is Foundation-only |
 | 2026-10-26 | Pro sync on CloudKit private database, no backend of our own (Linear doc "Backend & Cost Estimate") |
