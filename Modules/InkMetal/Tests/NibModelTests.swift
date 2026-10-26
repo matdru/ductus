@@ -63,4 +63,36 @@ struct NibModelTests {
         let data = try JSONEncoder().encode(InkParameters.defaults)
         #expect(try JSONDecoder().decode(InkParameters.self, from: data) == .defaults)
     }
+
+    /// Settings saved before a parameter existed must still load, taking the default for the new one.
+    @Test func missingParametersDecodeAsDefaults() throws {
+        var expected = InkParameters.defaults
+        expected.thinWidth = 2
+        let json = #"{"thinWidth": 2}"#
+        #expect(try JSONDecoder().decode(InkParameters.self, from: Data(json.utf8)) == expected)
+    }
+
+    @Test func ovalNibIsThinAlongItsAxisAndThickAcross() {
+        let nib = NibShape(angle: 0, roundness: 0.25)
+        #expect(abs(nib.width(acrossDirection: 0) - 0.5) < 1e-9)
+        #expect(abs(nib.width(acrossDirection: .pi / 2) - 2) < 1e-9)
+        #expect(abs(NibShape.circle.width(acrossDirection: 1.1) - 2) < 1e-9)
+    }
+
+    @Test func nibSpaceTurnsTheOvalIntoAUnitCircle() {
+        let nib = NibShape(angle: .pi / 6, roundness: 0.25)
+        let alongMajor = nib.toNibSpace(x: cos(.pi / 6), y: sin(.pi / 6))
+        let alongMinor = nib.toNibSpace(x: -sin(.pi / 6) * 0.25, y: cos(.pi / 6) * 0.25)
+        #expect(abs(hypot(alongMajor.x, alongMajor.y) - 1) < 1e-9)
+        #expect(abs(hypot(alongMinor.x, alongMinor.y) - 1) < 1e-9)
+    }
+
+    @Test func fountainNibUsesAngleAndRoundness() {
+        var parameters = InkParameters.defaults
+        parameters.nibRoundness = 0.5
+        let nib = NibModel.shape(for: .fountainPen, parameters: parameters)
+        #expect(abs(nib.angle - parameters.nibAngleDegrees * .pi / 180) < 1e-9)
+        #expect(nib.roundness == 0.5)
+        #expect(NibModel.shape(for: .defaultPen, parameters: parameters) == .circle)
+    }
 }

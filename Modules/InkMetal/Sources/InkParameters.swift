@@ -8,7 +8,10 @@ public struct InkParameters: Sendable, Codable, Equatable {
     public var nibAngleDegrees: Double
     /// How quickly width rises away from the thin direction; higher keeps diagonals thinner.
     public var sharpness: Double
-    /// Adds the Pencil's azimuth to the nib angle.
+    /// Nib shape, thin side ÷ broad side: 1 is a round nib; PencilKit's is about 0.25. A round nib leaves blobs at
+    /// tight turns and pen lifts, because its full thick width shows in every direction.
+    public var nibRoundness: Double
+    /// Adds the Pencil's azimuth to the nib angle (width only; the oval keeps the base nib angle).
     public var followsPencilLean: Bool
     /// 0 ignores force; 1 scales width by `force ^ pressureCurve`.
     public var pressureAmount: Double
@@ -22,10 +25,43 @@ public struct InkParameters: Sendable, Codable, Equatable {
     public var baselineRenderer: Bool
 
     public static let defaults = InkParameters(
-        thinWidth: 1.35, thickWidth: 8.9, nibAngleDegrees: -10, sharpness: 3.5, followsPencilLean: false,
+        thinWidth: 1.35, thickWidth: 8.9, nibAngleDegrees: -10, sharpness: 3.5, nibRoundness: 0.25,
+        followsPencilLean: false,
         pressureAmount: 0, pressureCurve: 1, speedThinning: 0, smoothing: 0.5, predictionEnabled: true,
         baselineRenderer: false)
 
     /// Identifies `defaults`; bump whenever the baked defaults change.
     public static let defaultsID = "2026-10-22-pencilkit-fit"
+}
+
+extension InkParameters {
+    private enum CodingKeys: String, CodingKey {
+        case thinWidth, thickWidth, nibAngleDegrees, sharpness, nibRoundness, followsPencilLean, pressureAmount
+        case pressureCurve
+        case speedThinning, smoothing, predictionEnabled, baselineRenderer
+    }
+
+    /// Missing keys take their default, so settings saved before a parameter existed still load.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        var parameters = InkParameters.defaults
+        func decode<Value: Decodable>(_ keyPath: WritableKeyPath<InkParameters, Value>, _ key: CodingKeys) throws {
+            if let value = try container.decodeIfPresent(Value.self, forKey: key) {
+                parameters[keyPath: keyPath] = value
+            }
+        }
+        try decode(\.thinWidth, .thinWidth)
+        try decode(\.thickWidth, .thickWidth)
+        try decode(\.nibAngleDegrees, .nibAngleDegrees)
+        try decode(\.sharpness, .sharpness)
+        try decode(\.nibRoundness, .nibRoundness)
+        try decode(\.followsPencilLean, .followsPencilLean)
+        try decode(\.pressureAmount, .pressureAmount)
+        try decode(\.pressureCurve, .pressureCurve)
+        try decode(\.speedThinning, .speedThinning)
+        try decode(\.smoothing, .smoothing)
+        try decode(\.predictionEnabled, .predictionEnabled)
+        try decode(\.baselineRenderer, .baselineRenderer)
+        self = parameters
+    }
 }

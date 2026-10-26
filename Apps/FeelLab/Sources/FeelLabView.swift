@@ -4,6 +4,7 @@ import SwiftUI
 struct FeelLabView: View {
     @State private var model = FeelLabModel()
     @State private var exportMessage: String?
+    @State private var showsTuning = false
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,16 @@ struct FeelLabView: View {
                     }
                     .padding(.bottom, 24)
                 }
+                .overlay(alignment: .trailing) {
+                    if showsTuning && model.engine == .custom {
+                        TuningPanel(model: model)
+                            .frame(width: 360)
+                            .glassEffect(in: .rect(cornerRadius: 24))
+                            .padding(16)
+                            .transition(.move(edge: .trailing))
+                    }
+                }
+                .animation(.snappy, value: showsTuning)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -46,6 +57,9 @@ struct FeelLabView: View {
                         .frame(width: 260)
                     }
                     ToolbarItemGroup(placement: .topBarTrailing) {
+                        if model.engine == .custom {
+                            Button("Tuning", systemImage: "slider.horizontal.3") { showsTuning.toggle() }
+                        }
                         if model.engine == .pencilKit {
                             Button("Export Strokes", systemImage: "square.and.arrow.down") { exportStrokes() }
                         }

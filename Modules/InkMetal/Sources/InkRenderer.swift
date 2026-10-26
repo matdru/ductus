@@ -3,7 +3,7 @@ import InkCore
 import Metal
 import QuartzCore
 
-/// One stroke ready to draw: capsule segments in canvas points, their bounds, and the ink colour.
+/// One stroke ready to draw: capsule segments (in nib space), their screen bounds, the nib and the ink colour.
 public struct DrawStroke: Sendable {
     /// Quad padding for the antialiasing ramp, in points.
     static let margin = 1.0
@@ -11,17 +11,26 @@ public struct DrawStroke: Sendable {
     public var segments: [SegmentVertex]
     public var bounds: CGRect
     public var color: InkColor
+    public var nib: NibShape
 
-    public init(segments: [SegmentVertex], bounds: CGRect, color: InkColor) {
+    public init(segments: [SegmentVertex], bounds: CGRect, color: InkColor, nib: NibShape) {
         self.segments = segments
         self.bounds = bounds
         self.color = color
+        self.nib = nib
     }
 
-    public init(path: [PathPoint], color: InkColor) {
+    public init(path: [PathPoint], color: InkColor, nib: NibShape = .circle) {
         self.init(
-            segments: StrokeMesh.vertices(for: path, margin: Float(Self.margin)),
-            bounds: StrokeMesh.bounds(of: path, margin: Self.margin), color: color)
+            segments: StrokeMesh.vertices(for: path, margin: Float(Self.margin), nib: nib),
+            bounds: StrokeMesh.bounds(of: path, margin: Self.margin, nib: nib), color: color, nib: nib)
+    }
+
+    /// The whole pipeline for one stroke: samples → `StrokePath` → mesh, with the tool's nib and colour.
+    public init(committed: [StrokeSample], predicted: [StrokeSample], tool: InkTool, parameters: InkParameters) {
+        self.init(
+            path: StrokePath.points(committed: committed, predicted: predicted, tool: tool, parameters: parameters),
+            color: tool.color, nib: NibModel.shape(for: tool, parameters: parameters))
     }
 }
 
@@ -116,11 +125,11 @@ final class InkRenderer {
     /// Returns false if nothing was presented (the caller keeps its pending work).
     func render(_ frame: Frame, to layer: CAMetalLayer, viewportSize: CGSize, scale: CGFloat) -> Bool {
         guard viewportSize.width > 0, viewportSize.height > 0 else { return false }
-        let pixelSize = layer.drawableSize
-        ensureTextures(width: Int(pixelSize.width), height: Int(pixelSize.height))
+        guard let drawable = layer.nextDrawable() else { return false }
+        // Size the cache from the drawable itself so the blit below always matches.
+        ensureTextures(width: drawable.texture.width, height: drawable.texture.height)
         guard !needsRebuild || frame.rebuild != nil,
             let page = pageTexture, let coverage = coverageTexture,
-            let drawable = layer.nextDrawable(),
             let commandBuffer = queue.makeCommandBuffer()
         else { return false }
 
@@ -128,12 +137,12 @@ final class InkRenderer {
             origin: .zero, viewport: SIMD2(Float(viewportSize.width), Float(viewportSize.height)), scale: Float(scale))
         if let rebuild = frame.rebuild {
             clear(page, in: commandBuffer)
-            for stroke in rebuild {
-                draw(stroke, onto: page, coverage: coverage, uniforms: uniforms, in: commandBuffer)
+            for batch in Self.batches(rebuild) {
+                draw(Self.merged(batch), onto: page, coverage: coverage, uniforms: uniforms, in: commandBuffer)
             }
         }
-        for stroke in frame.append {
-            draw(stroke, onto: page, coverage: coverage, uniforms: uniforms, in: commandBuffer)
+        for batch in Self.batches(frame.append) {
+            draw(Self.merged(batch), onto: page, coverage: coverage, uniforms: uniforms, in: commandBuffer)
         }
 
         guard let blit = commandBuffer.makeBlitCommandEncoder() else { return false }
@@ -193,7 +202,9 @@ final class InkRenderer {
             origin: SIMD2(Float(rect.minX), Float(rect.minY)),
             viewport: SIMD2(Float(rect.width), Float(rect.height)), scale: Float(scale))
         clear(target, in: commandBuffer)
-        for stroke in strokes { draw(stroke, onto: target, coverage: coverage, uniforms: uniforms, in: commandBuffer) }
+        for batch in Self.batches(strokes) {
+            draw(Self.merged(batch), onto: target, coverage: coverage, uniforms: uniforms, in: commandBuffer)
+        }
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
 
@@ -210,6 +221,32 @@ final class InkRenderer {
                 provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
         else { return nil }
         return image
+    }
+
+    // MARK: Batching
+
+    /// Runs of consecutive opaque strokes with the same colour and nib share one coverage + composite pass
+    /// (for opaque ink, max-blended coverage looks the same as compositing each stroke). Translucent strokes
+    /// stay separate so overlaps between them still darken.
+    static func batches(_ strokes: [DrawStroke]) -> [[DrawStroke]] {
+        var batches: [[DrawStroke]] = []
+        for stroke in strokes {
+            if let first = batches.last?.first, stroke.color.alpha == 1, first.color == stroke.color,
+                first.nib == stroke.nib
+            {
+                batches[batches.count - 1].append(stroke)
+            } else {
+                batches.append([stroke])
+            }
+        }
+        return batches
+    }
+
+    static func merged(_ batch: [DrawStroke]) -> DrawStroke {
+        guard batch.count > 1, let first = batch.first else { return batch[0] }
+        return DrawStroke(
+            segments: batch.flatMap(\.segments), bounds: batch.reduce(CGRect.null) { $0.union($1.bounds) },
+            color: first.color, nib: first.nib)
     }
 
     // MARK: Passes
@@ -247,6 +284,8 @@ final class InkRenderer {
         coverageEncoder.setVertexBuffer(buffer, offset: 0, index: 0)
         coverageEncoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
         coverageEncoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
+        var nib = stroke.nib.matrix
+        coverageEncoder.setFragmentBytes(&nib, length: MemoryLayout<SIMD4<Float>>.stride, index: 1)
         coverageEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: stroke.segments.count)
         coverageEncoder.endEncoding()
 

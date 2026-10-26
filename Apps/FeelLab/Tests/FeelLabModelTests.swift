@@ -1,5 +1,6 @@
 import Foundation
 import InkCore
+import InkMetal
 import InkPencilKit
 import PencilKit
 import Testing
@@ -74,5 +75,38 @@ struct FeelLabModelTests {
         let model = FeelLabModel(allowsFingerDrawing: false)
         model.customTool = .pen
         #expect(model.customSurface.tool == .defaultPen)
+    }
+
+    func freshStore() -> TuningSettingsStore {
+        TuningSettingsStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+    }
+
+    @Test func parametersReachSurfaceAndPersist() {
+        let suite = UserDefaults(suiteName: UUID().uuidString)!
+        let model = FeelLabModel(allowsFingerDrawing: false, store: TuningSettingsStore(defaults: suite))
+        model.parameters.sharpness = 2
+        #expect(model.customSurface.parameters.sharpness == 2)
+        #expect(TuningSettingsStore(defaults: suite).load().sharpness == 2)
+    }
+
+    @Test func resetRestoresBakedDefaults() {
+        let model = FeelLabModel(allowsFingerDrawing: false, store: freshStore())
+        model.parameters.thinWidth = 3
+        model.resetParameters()
+        #expect(model.parameters == .defaults)
+        #expect(model.customSurface.parameters == .defaults)
+    }
+
+    @Test func restorePreviousAppliesDisplacedSettings() {
+        let suite = UserDefaults(suiteName: UUID().uuidString)!
+        var tuned = InkParameters.defaults
+        tuned.nibAngleDegrees = 20
+        TuningSettingsStore(defaults: suite, bakedDefaultsID: "old").save(tuned)
+        let model = FeelLabModel(allowsFingerDrawing: false, store: TuningSettingsStore(defaults: suite))
+        #expect(model.parameters == .defaults)
+        #expect(model.hasPreviousParameters)
+        model.restorePreviousParameters()
+        #expect(model.parameters == tuned)
+        #expect(model.customSurface.parameters == tuned)
     }
 }

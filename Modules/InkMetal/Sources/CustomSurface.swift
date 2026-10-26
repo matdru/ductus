@@ -87,7 +87,9 @@ public final class CustomSurface: UIView, InkSurface {
         let displayScale = traitCollection.displayScale
         let scale = displayScale > 0 ? displayScale : contentScaleFactor
         metalLayer.contentsScale = scale
-        let drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
+        // Whole pixels: the page cache is blitted into the drawable and must match it exactly.
+        let drawableSize = CGSize(
+            width: (bounds.width * scale).rounded(), height: (bounds.height * scale).rounded())
         if metalLayer.drawableSize != drawableSize {
             metalLayer.drawableSize = drawableSize
             cacheNeedsRebuild = true
@@ -129,10 +131,8 @@ public final class CustomSurface: UIView, InkSurface {
         let append = rebuild == nil ? pendingAppends.map(drawStroke) : []
         let active = activeBuilder.map { builder in
             DrawStroke(
-                path: StrokePath.points(
-                    committed: builder.committed, predicted: parameters.predictionEnabled ? builder.predicted : [],
-                    tool: builder.tool, parameters: parameters),
-                color: builder.tool.color)
+                committed: builder.committed, predicted: parameters.predictionEnabled ? builder.predicted : [],
+                tool: builder.tool, parameters: parameters)
         }
         let frame = InkRenderer.Frame(rebuild: rebuild, append: append, active: active)
         if renderer.render(frame, to: metalLayer, viewportSize: bounds.size, scale: metalLayer.contentsScale) {
@@ -143,10 +143,7 @@ public final class CustomSurface: UIView, InkSurface {
     }
 
     private func drawStroke(_ stroke: Stroke) -> DrawStroke {
-        DrawStroke(
-            path: StrokePath.points(
-                committed: stroke.samples, predicted: [], tool: stroke.tool, parameters: parameters),
-            color: stroke.tool.color)
+        DrawStroke(committed: stroke.samples, predicted: [], tool: stroke.tool, parameters: parameters)
     }
 
     /// Today's original constant-width quads, kept for before/after comparison.

@@ -46,9 +46,8 @@ struct ParityTests {
     /// Rendered width at each interior sample (more than 5 pt from either end), keyed by direction bin.
     static func measuredWidths(of samples: [StrokeSample]) throws -> [String: [Double]] {
         guard let first = samples.first, let last = samples.last, samples.count >= 3 else { return [:] }
-        let path = StrokePath.points(committed: samples, predicted: [], tool: .fountainPen, parameters: .defaults)
-        let image = try #require(
-            CoverageImage([DrawStroke(path: path, color: .black)], in: StrokeMesh.bounds(of: path, margin: 16)))
+        let stroke = DrawStroke(committed: samples, predicted: [], tool: .fountainPen, parameters: .defaults)
+        let image = try #require(CoverageImage([stroke], in: stroke.bounds.insetBy(dx: -15, dy: -15)))
         var widths: [String: [Double]] = [:]
         for index in 1..<(samples.count - 1) {
             let point = samples[index]

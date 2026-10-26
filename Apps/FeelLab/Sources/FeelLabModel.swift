@@ -70,10 +70,37 @@ final class FeelLabModel {
         didSet { customSurface.setTool(customTool.inkTool) }
     }
 
-    init(allowsFingerDrawing: Bool = FeelLabModel.isSimulator) {
+    private let store: TuningSettingsStore
+    /// Custom-engine tuning; every change is applied live and saved.
+    var parameters: InkParameters {
+        didSet {
+            customSurface.parameters = parameters
+            store.save(parameters)
+        }
+    }
+
+    var hasPreviousParameters: Bool { store.previous() != nil }
+
+    init(allowsFingerDrawing: Bool = FeelLabModel.isSimulator, store: TuningSettingsStore = TuningSettingsStore()) {
+        self.store = store
+        parameters = store.load()
+        customSurface.parameters = parameters
         pencilKitSurface.allowsFingerDrawing = allowsFingerDrawing
         customSurface.allowsFingerDrawing = allowsFingerDrawing
         customSurface.setTool(customTool.inkTool)
+    }
+
+    func resetParameters() {
+        parameters = .defaults
+    }
+
+    func restorePreviousParameters() {
+        if let previous = store.previous() { parameters = previous }
+    }
+
+    /// Puts the current settings on the clipboard as versioned JSON, ready to paste into chat.
+    func copyParametersJSON() {
+        UIPasteboard.general.string = store.copyJSON(parameters)
     }
 
     /// Saves the PencilKit page's raw points as JSON and returns the file. On device, pull it with

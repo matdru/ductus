@@ -38,9 +38,15 @@ enum InkShaders {
             return dot(lp, float2(s, c)) - ra;
         }
 
-        fragment float segment_coverage(SegmentOut in [[stage_in]], constant Uniforms &u [[buffer(0)]]) {
-            float2 p = u.origin + in.position.xy / u.scale;
-            return saturate(0.5 - sdUnevenCapsule(p, in.a, in.b, in.ra, in.rb) * u.scale);
+        // `nib` maps screen points into nib space (row-major 2×2), where the nib oval is a circle. Distances there
+        // aren't screen distances, so the antialiasing ramp comes from the distance's screen-space gradient.
+        fragment float segment_coverage(SegmentOut in [[stage_in]], constant Uniforms &u [[buffer(0)]],
+                                        constant float4 &nib [[buffer(1)]]) {
+            float2 s = u.origin + in.position.xy / u.scale;
+            float2 p = float2(nib.x * s.x + nib.y * s.y, nib.z * s.x + nib.w * s.y);
+            float d = sdUnevenCapsule(p, in.a, in.b, in.ra, in.rb);
+            float pixel = max(length(float2(dfdx(d), dfdy(d))), 1e-6);
+            return saturate(0.5 - d / pixel);
         }
 
         struct FullscreenOut { float4 position [[position]]; };

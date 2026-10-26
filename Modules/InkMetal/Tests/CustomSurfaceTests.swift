@@ -120,4 +120,13 @@ struct CustomSurfaceTests {
         surface.undo()
         #expect(surface.cacheNeedsRebuild)
     }
+
+    /// The page cache is blitted into the drawable, which needs identical whole-pixel sizes.
+    @Test func drawableSizeIsWholePixels() {
+        let surface = CustomSurface(frame: CGRect(x: 0, y: 0, width: 100.4, height: 50.3))
+        surface.traitOverrides.displayScale = 3
+        surface.updateTraitsIfNeeded()
+        surface.layoutIfNeeded()
+        #expect(surface.metalLayer.drawableSize == CGSize(width: 301, height: 151))
+    }
 }
