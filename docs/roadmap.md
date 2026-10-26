@@ -14,7 +14,7 @@ Each milestone has exit criteria; it isn't done until they're met. No dates: sco
 | Foundation | On-disk format for notebooks and pages | Open (Linear DRU-17) |
 | Look & Feel | Tactile notebook UI vs clean, practical UI; page turn vs vertical scroll | Explore tactile first, fall back to clean + vertical scroll (Linear DRU-29, DRU-32) |
 | Performance & Limits | Page cap per notebook | Open; set by benchmarks (Linear DRU-49) |
-| Pro & Cloud | Business model | **Decided:** unlimited local notes free; Pro subscription adds iCloud sync and backup. Pricing open (Linear DRU-63) |
+| Pro & Cloud | Business model | **Decided:** unlimited local notes free; Pro subscription adds iCloud sync and backup via CloudKit (no backend of our own). Pricing open (Linear DRU-63) |
 
 ---
 

@@ -131,3 +131,4 @@ mise run format       # swift-format in place
 | 2026-10-22 | Fountain pen: direction-driven nib fitted to PencilKit; pressure/speed effects default to 0 |
 | 2026-10-26 | **Ink engine: PencilKit.** Custom Metal engine and FeelLab parked (still built and tested, not used by Ductus) |
 | 2026-10-26 | Planning moves to Linear (project Ductus); `docs/roadmap.md` mirrors its milestones |
+| 2026-10-26 | Pro sync on CloudKit private database, no backend of our own (Linear doc "Backend & Cost Estimate") |
