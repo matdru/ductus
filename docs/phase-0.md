@@ -4,7 +4,26 @@
 
 **Timebox:** ~1 week for harness + PencilKit side, 2–3 weeks for the custom engine to reach a fair comparison.
 
-**Status:** harness bootstrapped 2026-10-06 — both engines draw; single-engine mode works.
+**Status:** concluded 2026-10-26: **PencilKit**. See [Outcome](#outcome).
+
+## Outcome
+
+**2026-10-26: Ductus builds on PencilKit.**
+
+The custom engine reached a fair comparison on the author's iPad Pro 11" (M2):
+- antialiased variable-width strokes
+- a fountain pen within ±0.45 pt of PencilKit's measured widths, with an oval nib that fixed blobs at tight turns
+- steady-hand smoothing (leash plus decimated B-spline)
+
+The author judged it "much better" but still short of PencilKit, which turns lazy scribbles into cleaner lines. PencilKit also brings palm rejection, erasers, lasso and accessibility for free.
+
+**What wasn't run:** the formal numeric gates (slow-mo latency, blind A/B, stress test) were never run, because the camera setup wasn't available. The decision rests on the author's side-by-side judgement. The [exit criteria](#exit-criteria) default to PencilKit unless the custom engine clearly wins, and it didn't.
+
+**What stays:**
+- `Modules/InkMetal` and the FeelLab app stay in the repo, building and tested, as a parked lab. They are not a dependency of the Ductus app.
+- Open ideas are tracked in Linear [DRU-19](https://linear.app/drulaki/issue/DRU-19/custom-ink-engine-parked-ideas): the smoothing gap, paper-like ink soaking, latency measurement, comparison modes.
+
+The rest of this document is the original protocol and the measurements, kept as a record.
 
 ## Harness architecture
 

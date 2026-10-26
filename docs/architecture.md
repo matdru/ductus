@@ -6,7 +6,7 @@ A living document: update it when the code's shape changes. Detailed design hist
 
 | Topic | Decision | Why |
 |---|---|---|
-| UI | SwiftUI app shell; ink surfaces in UIKit + Metal, hosted via `UIViewRepresentable` | SwiftUI doesn't expose coalesced/predicted touches, hover, squeeze or low-latency presentation control |
+| UI | SwiftUI app shell; ink via PencilKit (`PKCanvasView` in UIKit), hosted via `UIViewRepresentable` | Phase 0 chose PencilKit; SwiftUI has no native canvas with PencilKit's control |
 | Language | Swift 6 language mode, strict concurrency | New codebase, no migration cost |
 | Platform | iPadOS 26+, iPad only | ~N-1 at expected launch; modern SwiftUI/Observation; Pencil Pro APIs |
 | Project | Tuist (`Project.swift`); generated `.xcodeproj`/`.xcworkspace` are gitignored | No project-file merge conflicts; clean multi-app + shared-module graph |
@@ -20,11 +20,11 @@ A living document: update it when the code's shape changes. Detailed design hist
 ```
 Project.swift, Tuist.swift, mise.toml
 Apps/
-  Ductus/        the product: SwiftUI shell, one canvas for now
-  FeelLab/       Phase 0 harness — deletable once the engine is chosen
+  Ductus/        the product: notebook library + PencilKit editor
+  FeelLab/       Phase 0 harness, parked: engine comparison and tuning lab
 Modules/
   InkCore/       pure Swift: data model, op log, InkSurface protocol
-  InkMetal/      custom engine: touch pipeline, geometry, Metal renderer
+  InkMetal/      custom engine, parked: touch pipeline, geometry, Metal renderer
   InkPencilKit/  PencilKit engine + Stroke ⇄ PKStroke conversion
 docs/
 ```
@@ -65,7 +65,9 @@ Both engines implement this `@MainActor` protocol, so apps and the Feel Lab can 
 - `undo()` — removes the most recent stroke; no-op when empty.
 - `setTool(_:)`, `load(_:)` (replace contents), `exportStrokes()`.
 
-## Custom engine pipeline (InkMetal)
+## Custom engine pipeline (InkMetal, parked)
+
+Parked since 2026-10-26: the Ductus app doesn't depend on it, but it still builds and its tests run. Kept for reference and in case PencilKit ever limits the product.
 
 ```
 UITouch events (touchesBegan/Moved/Ended)
@@ -127,3 +129,5 @@ mise run format       # swift-format in place
 | 2026-10-22 | Causal one-euro smoothing, lag capped at 0.5 pt; path ends at the latest raw sample |
 | 2026-10-26 | Steady hand: leash + decimated B-spline after PencilKit; last ~12 pt of a live stroke settle as you write |
 | 2026-10-22 | Fountain pen: direction-driven nib fitted to PencilKit; pressure/speed effects default to 0 |
+| 2026-10-26 | **Ink engine: PencilKit.** Custom Metal engine and FeelLab parked (still built and tested, not used by Ductus) |
+| 2026-10-26 | Planning moves to Linear (project Ductus); `docs/roadmap.md` mirrors its milestones |

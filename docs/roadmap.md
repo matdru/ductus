@@ -1,123 +1,81 @@
 # Ductus — High-Level Roadmap
 
-A note-taking app for iPad + Apple Pencil, built around impeccable writing feel. Why and for whom: [vision.md](vision.md). How it's built: [architecture.md](architecture.md).
+A note-taking app for iPad + Apple Pencil: notebooks whose pages look and feel like real paper, built on PencilKit. Why and for whom: [vision.md](vision.md). How it's built: [architecture.md](architecture.md).
 
-Each phase has exit criteria; a phase isn't done until they're met. Timeboxes are deliberately absent beyond Phase 0 — scope is the lever, not dates.
+**Day-to-day planning lives in Linear:** [Ductus project](https://linear.app/drulaki/project/ductus-c4355227cb4c), with one milestone per phase below and the [Product & Design Brief](https://linear.app/drulaki/document/ductus-product-and-design-brief-b0995ee289ec). This file is the summary; when they disagree, Linear wins.
+
+Each milestone has exit criteria; it isn't done until they're met. No dates: scope is the lever.
 
 ## Decision points
 
-| When | Decision | Inputs |
+| When | Decision | Status |
 |---|---|---|
-| End of Phase 0 | Ink engine: PencilKit or custom Metal | Latency numbers, blind A/B, stress test ([phase-0](phase-0.md)) |
-| Start of Phase 1 | On-disk format for the op log | Engine choice; sync model sketch |
-| Before Phase 3 | Sync model: CRDT vs. op-log merge with server ordering | Phase 1–2 op log in real use; CloudKit constraints |
-| Before Phase 5 | Business model: subscription vs. one-off + sync tier | Who actually uses it after Phase 2 |
+| End of Phase 0 | Ink engine: PencilKit or custom Metal | **Decided 2026-10-26: PencilKit** ([phase-0](phase-0.md#outcome)) |
+| Foundation | On-disk format for notebooks and pages | Open (Linear DRU-17) |
+| Look & Feel | Tactile notebook UI vs clean, practical UI; page turn vs vertical scroll | Explore tactile first, fall back to clean + vertical scroll (Linear DRU-29, DRU-32) |
+| Performance & Limits | Page cap per notebook | Open; set by benchmarks (Linear DRU-49) |
+| Pro & Cloud | Business model | **Decided:** unlimited local notes free; Pro subscription adds iCloud sync and backup. Pricing open (Linear DRU-63) |
 
 ---
 
-## Phase 0 — Feel lab
+## Phase 0 — Feel Lab ✅
 
-**Status:** In progress — harness bootstrapped (2026-10-06).
+Done 2026-10-26. FeelLab compared PencilKit with a custom Metal engine: fountain pen parity, an oval nib and steady-hand smoothing. PencilKit still felt better out of the box, so Ductus builds on it. The custom engine is parked, not deleted. Details: [phase-0.md](phase-0.md).
 
-**Goal:** Choose the ink engine on evidence, then throw the loser away.
+## 1. Foundation
 
-**Scope:** FeelLab app comparing `PencilKitSurface` and `CustomSurface` (single, split, replay, blind A/B modes); custom-engine debug panel; latency/FPS overlay. Details in [phase-0.md](phase-0.md).
+**Goal:** a real app shell with crash-safe storage.
 
-**Exit criteria**
-- Engine chosen against the numeric gates in [phase-0.md](phase-0.md#exit-criteria)
-- Latency, blind-test and stress results recorded in phase-0.md
-- Tuned parameters for the winner written down
+**Scope:** record the engine decision; Ductus app target and module layout; notebook/page data model; storage with one package per notebook and one file per page; minimum iPadOS and test devices.
 
-**Depends on:** nothing. **Risks:** a biased comparison (mitigated by blind A/B); spending too long polishing the custom engine before measuring it.
+**Exit:** a notebook can be created, written in, force-quit and reopened with nothing lost.
 
-## Phase 1 — MVP: one notebook that feels incredible
+## 2. Look & Feel
 
-**Goal:** One notebook the author uses every day instead of their current app.
+**Goal:** design the app before building it out.
 
-**Scope**
-- Stroke model: raw samples (position, force, altitude, azimuth, timestamp) → rendered geometry
-- Pen, highlighter, eraser (whole-stroke and partial)
-- Undo/redo, including two-finger-tap undo / three-finger-tap redo
-- Smooth pan/zoom with tiled caching
-- Palm rejection; finger vs. Pencil input policy
-- Paged canvas with a few paper templates (blank, lined, grid, dotted)
-- Local persistence as an append-only op log (sets up sync)
-- Pencil hardware: double-tap / squeeze tool switching, hover preview
+**Scope:** moodboard; design language; paper and cover catalogues; library, new-notebook, editor, toolbar and page-overview designs; motion, sound and haptics; a throwaway prototype on the iPad.
 
-**Exit criteria**
-- Meets the [vision](vision.md#what-best-in-class-feel-means) feel targets on the author's iPad
-- No ink lost across 100 forced app kills mid-stroke and mid-save
-- Author has used it as their only notebook for two consecutive weeks
+**Exit:** the author signs off the design brief after using the prototype. The prototype also decides tactile vs clean UI.
 
-**Depends on:** Phase 0 engine decision; op-log format decision. **Risks:** tiled rendering complexity; the eraser (partial erase splits strokes, which the op log must represent).
+## 3. Notebook MVP
 
-## Phase 2 — Real notebook app
+**Goal:** one app the author uses every day instead of their current one.
 
-**Goal:** Enough organisation and editing that a whole semester or project can live in Ductus.
+**Scope:** paper rendering under PencilKit; page editor; ink toolbar; page navigation; undo/redo with finger-tap gestures; library; notebook management; covers; page overview; autosave and thumbnails; settings.
 
-**Scope**
-- Library: notebooks, sections, page thumbnails, reordering
-- Lasso select → move / scale / rotate / recolour / copy-paste
-- Shape recognition (draw-and-hold snap), images, text boxes
-- PDF import + annotate; export PDF/PNG
-- Tool presets, custom palette
+**Exit:** two consecutive weeks as the author's only notebook.
 
-**Exit criteria**
-- 50-notebook, 2,000-page library opens to a writable page in < 1 s
-- PDF annotate → export round-trips without visual change
-- Lasso transforms are undoable and preserve stroke fidelity
+## 4. Performance & Limits
 
-**Depends on:** Phase 1. **Risks:** scope creep — this is where note apps bloat; every feature checks against the vision's principles.
+**Goal:** fast at any size, with an honest cap.
 
-## Phase 3 — Sync & multi-device
+**Scope:** generated benchmark notebooks; measurements on the author's iPad and the oldest supported one; lazy page loading; page cap per notebook with "continue in a new volume"; large-library and dense-page tests.
 
-**Goal:** Notes are everywhere the author is, and never conflict destructively.
+**Exit:** a notebook opens to a writable page in < 1 s; pages turn at 120 Hz; no write hitches on full pages, on the oldest supported iPad.
 
-**Scope**
-- CloudKit sync built on the op log (CRDT or ordered merge — see decision points)
-- Mac app (read-only first), iPhone viewer
-- Version history
+## 5. Delight & Polish
 
-**Exit criteria**
-- Two iPads editing the same page offline, then syncing, converge with no lost strokes (automated test)
-- Sync never blocks or slows the writing path (latency unchanged with sync on)
+**Scope:** page-turn animation; Pencil gestures (double-tap, squeeze, hover, barrel roll); sounds and haptics; lasso; PDF/image export; handwriting search; per-page templates; Recently Deleted; dark paper; ribbon bookmarks.
 
-**Depends on:** Phase 1 op log; sync model decision. **Risks:** sync correctness; CloudKit quotas and record-size limits for large notebooks.
+## 6. Pro & Cloud
 
-## Phase 4 — Intelligence
+**Scope:** pricing; StoreKit 2 subscription; paywall that never interrupts writing; CloudKit sync design and build; backup and restore; nothing locked or deleted when Pro lapses.
 
-**Goal:** Handwritten notes become as findable as typed ones.
+**Exit:** two iPads editing offline converge with no lost strokes; writing latency unchanged with sync on.
 
-**Scope**
-- On-device handwriting recognition → searchable notes
-- Handwriting → text; math and diagram cleanup
-- Optional AI: summarise or tidy a page, link related notes
+## 7. Launch
 
-**Exit criteria**
-- Search finds a handwritten word on any page of the 2,000-page library in < 500 ms
-- All recognition runs on device; AI features are opt-in
+**Scope:** onboarding; accessibility; privacy policy and labels; diagnostics; TestFlight beta; App Store listing; 1.0.
 
-**Depends on:** Phase 2 library. **Risks:** recognition quality on messy handwriting; battery cost of background indexing.
-
-## Phase 5 — Polish & launch
-
-**Goal:** Ship to people who aren't the author.
-
-**Scope**
-- Onboarding, accessibility, perf tuning on older supported iPads
-- Business model, App Store assets, TestFlight beta
-
-**Exit criteria**
-- Feel targets met on the oldest supported iPad
-- TestFlight beta with ≥ 20 active users for 4 weeks; crash-free sessions ≥ 99.5%
-
-**Depends on:** Phases 1–3 (4 can ship after launch). **Risks:** positioning in a crowded category — see [vision](vision.md#landscape).
+**Exit:** ≥ 20 active beta users for 4 weeks, crash-free sessions ≥ 99.5%, then 1.0 on the App Store.
 
 ---
 
 ## Key risks
 
-- **Ink engine quality and latency** — de-risked in Phase 0.
-- **Performance on large notebooks** — tiled rendering in Phase 1, library scale target in Phase 2.
-- **Sync correctness** — why Phase 1 stores an op log from day one.
-- **Platform shifts** — Apple ships a PencilKit improvement that changes the calculus. Re-run the Phase 0 measurements on each major iPadOS release.
+- **Performance on large notebooks:** one file per page, lazy loading and a benchmarked page cap.
+- **Losing ink:** atomic per-page saves; forced-kill tests in Foundation.
+- **Sync correctness:** designed before it's built; never in the writing path.
+- **PencilKit limits:** if it ever blocks the product, the custom engine (`Modules/InkMetal`) is parked, not deleted. Its open ideas are tracked in Linear DRU-19.
+- **Positioning:** a crowded category. See [vision](vision.md#landscape).

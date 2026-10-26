@@ -26,8 +26,9 @@ mise install && mise run generate   # produces Ductus.xcworkspace
 
 ## Docs
 
+- Planning and issues: Linear project [Ductus](https://linear.app/drulaki/project/ductus-c4355227cb4c) (team Drulaki, `DRU-*` issues)
 - [docs/vision.md](docs/vision.md) — what and why, measurable feel targets
 - [docs/roadmap.md](docs/roadmap.md) — phases, exit criteria, decision points
-- [docs/phase-0.md](docs/phase-0.md) — Feel Lab: engine comparison protocol
+- [docs/phase-0.md](docs/phase-0.md) — Feel Lab: engine comparison (concluded: PencilKit; custom engine parked)
 - [docs/architecture.md](docs/architecture.md) — stack, modules, data model, decisions log
 - `docs/superpowers/specs/`, `docs/superpowers/plans/` — design specs and implementation plans
