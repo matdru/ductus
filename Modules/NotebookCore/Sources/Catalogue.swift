@@ -90,5 +90,5 @@ public enum PageSize: String, CatalogueValue {
         }
     }
 
-    static func points(millimetres: Double) -> Double { millimetres / 25.4 * 72 }
+    public static func points(millimetres: Double) -> Double { millimetres / 25.4 * 72 }
 }

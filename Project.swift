@@ -86,4 +86,9 @@ let project = Project(
             "Ductus", bundleId: "app.ductus",
             dependencies: [.target(name: "InkCore"), .target(name: "InkPencilKit")],
             tests: false)
+        // Throwaway look-and-feel prototype (Linear DRU-32); not shipped.
+        + app(
+            "Prototype", bundleId: "app.ductus.prototype",
+            dependencies: [.target(name: "NotebookCore")],
+            tests: false)
 )

@@ -23,7 +23,7 @@ run = "xcrun swift-format format --in-place --recursive Apps Modules Project.swi
 
 [tasks.device]
 description = "Build, sign, install and launch an app on a connected iPad (needs DUCTUS_TEAM, DUCTUS_DEVICE in mise.local.toml)"
-usage = 'arg "[app]" default="FeelLab" help="FeelLab or Ductus"'
+usage = 'arg "[app]" default="FeelLab" help="FeelLab, Ductus or Prototype"'
 run = """
 set -euo pipefail
 : "${DUCTUS_TEAM:?set DUCTUS_TEAM in mise.local.toml}"
