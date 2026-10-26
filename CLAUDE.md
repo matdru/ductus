@@ -19,7 +19,7 @@ mise install && mise run generate   # produces Ductus.xcworkspace
 
 - Never commit generated `*.xcodeproj` / `*.xcworkspace` / `Derived/`. Edit `Project.swift` and regenerate.
 - New modules: `module("Name", dependencies: [...])` in `Project.swift`, with sources in `Modules/Name/Sources` and tests in `Modules/Name/Tests`.
-- `InkCore` imports only Foundation — never UIKit, SwiftUI, PencilKit or Metal.
+- `InkCore` and `NotebookCore` import only Foundation — never UIKit, SwiftUI, PencilKit or Metal.
 - Dependencies point toward `InkCore`. Modules never depend on apps; engine modules never depend on each other.
 - Unit tests use Swift Testing (`import Testing`). Put logic in value types so it can be tested without a screen.
 - Swift 6 language mode with strict concurrency; UI and surfaces are `@MainActor`.

@@ -26,6 +26,8 @@ Modules/
   InkCore/       pure Swift: data model, op log, InkSurface protocol
   InkMetal/      custom engine, parked: touch pipeline, geometry, Metal renderer
   InkPencilKit/  PencilKit engine + Stroke ⇄ PKStroke conversion
+  NotebookCore/  pure Swift: Notebook, Page, paper/cover catalogue, manifest format
+  NotebookStore/ notebooks on disk: one package per notebook, one file per page
 docs/
 ```
 
@@ -41,6 +43,26 @@ Apps ──► InkMetal ─────┐
 
 - Arrows only point toward `InkCore`. Modules never depend on apps, and engine modules never depend on each other.
 - `InkCore` imports only Foundation — no UIKit, SwiftUI, PencilKit or Metal — so it's testable anywhere and reusable for the Mac app and sync later.
+
+## Notebooks (NotebookCore, NotebookStore)
+
+| Type | Role |
+|---|---|
+| `Notebook` | id, title, `Cover`, `Paper`, `PageSize`, ordered `Page`s (never empty), pinned, last viewed page, dates |
+| `Page` | id, optional paper override, dates. Its ink is a separate file |
+| `Paper` / `Cover` / `PageSize` | Catalogue values. Unknown values from a newer app decode as a fallback (`CatalogueValue`) |
+| `NotebookManifest` | `manifest.json`: `{schemaVersion, notebook}`. Missing fields take defaults; a newer `schemaVersion` is refused so saving can't drop fields we don't know. Dates are seconds since 2001 (exact round trips) |
+| `NotebookStore` | Actor. `loadLibrary()` reads manifests only; `save`, `savePage`, `pageData`, `deletePageData`, `delete(notebook:)` |
+
+```
+<root>/<notebook-id>.ductus/
+  manifest.json
+  pages/<page-id>.drawing     PKDrawing.dataRepresentation(); no file = blank page
+```
+
+- Every write is atomic (temporary file, then rename), so a kill mid-save leaves the previous version.
+- Page ink is opaque `Data` to the store, so `NotebookStore` doesn't import PencilKit. A damaged page file affects only that page, and an unreadable manifest is reported and left on disk, never deleted.
+- **Ink format decision (2026-10-26):** store `PKDrawing` data per page rather than our own stroke model. It's lossless for every PencilKit ink and simple. The cost is that PencilKit strokes have no stable IDs, so offline merges in sync (Linear DRU-66) will compare strokes by content. This supersedes the Phase 0 recommendation to persist InkCore strokes.
 
 ## Data model (InkCore)
 
@@ -131,4 +153,5 @@ mise run format       # swift-format in place
 | 2026-10-22 | Fountain pen: direction-driven nib fitted to PencilKit; pressure/speed effects default to 0 |
 | 2026-10-26 | **Ink engine: PencilKit.** Custom Metal engine and FeelLab parked (still built and tested, not used by Ductus) |
 | 2026-10-26 | Planning moves to Linear (project Ductus); `docs/roadmap.md` mirrors its milestones |
+| 2026-10-26 | Notebook storage: package per notebook, `PKDrawing` data per page, atomic writes; `NotebookCore` is Foundation-only |
 | 2026-10-26 | Pro sync on CloudKit private database, no backend of our own (Linear doc "Backend & Cost Estimate") |

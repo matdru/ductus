@@ -76,6 +76,8 @@ let project = Project(
     targets: module("InkCore")
         + module("InkMetal", dependencies: [.target(name: "InkCore")])
         + module("InkPencilKit", dependencies: [.target(name: "InkCore")])
+        + module("NotebookCore")
+        + module("NotebookStore", dependencies: [.target(name: "NotebookCore")])
         + app(
             "FeelLab", bundleId: "app.ductus.feellab",
             dependencies: [.target(name: "InkCore"), .target(name: "InkMetal"), .target(name: "InkPencilKit")],
