@@ -65,3 +65,28 @@ extension EditorTool.Kind {
         }
     }
 }
+
+/// What a double-tap (or squeeze) on the Pencil does, following the user's choice in iPadOS Settings.
+enum PencilTapAction: Equatable {
+    case switchEraser, switchPrevious, ignore
+
+    init(_ preferred: UIPencilPreferredAction) {
+        switch preferred {
+        case .switchEraser: self = .switchEraser
+        case .switchPrevious: self = .switchPrevious
+        // The colour palette and ink attributes arrive with the ink toolbar (DRU-36).
+        default: self = .ignore
+        }
+    }
+}
+
+extension EditorTool.Kind {
+    /// The tool after a Pencil tap, given the tool used before this one.
+    func afterPencilTap(_ action: PencilTapAction, previous: EditorTool.Kind) -> EditorTool.Kind {
+        switch action {
+        case .switchEraser where self != .eraser: .eraser
+        case .switchEraser, .switchPrevious: previous == self ? EditorTool.default.kind : previous
+        case .ignore: self
+        }
+    }
+}

@@ -40,7 +40,7 @@ struct NotebookCanvasView: UIViewRepresentable {
 
 /// Owns the PKCanvasView and its paper underlay, and keeps zoom, content size and page tracking in step.
 @MainActor
-final class NotebookCanvas: NSObject, PKCanvasViewDelegate {
+final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionDelegate {
     let canvas = LayoutReportingCanvasView()
     private let underlay = PaperUnderlayView()
     private let model: EditorModel
@@ -72,6 +72,7 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate {
         controller.canvas = canvas
         controller.scrollToPageHandler = { [weak self] index in self?.scroll(toPage: index, animated: true) }
         canvas.onLayout = { [weak self] in self?.layoutChanged() }
+        canvas.addInteraction(UIPencilInteraction(delegate: self))
     }
 
     func apply(gutter: ThemeColor, hairline: ThemeColor) {
@@ -141,6 +142,14 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate {
         guard !isApplyingModel else { return }
         model.drawingChanged(canvasView.drawing)
     }
+
+    // MARK: UIPencilInteractionDelegate
+
+    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
+        model.pencilTapped(PencilTapAction(UIPencilInteraction.preferredTapAction))
+    }
+
+    // MARK: UIScrollViewDelegate
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         updateContentSize()

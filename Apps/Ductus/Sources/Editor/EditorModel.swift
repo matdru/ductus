@@ -26,7 +26,13 @@ final class EditorModel {
     private(set) var isLoaded = false
     /// Bumped whenever the model replaces the drawing itself (load, new page), so the canvas knows to take it.
     private(set) var revision = 0
-    var tool = EditorTool.default
+    var tool = EditorTool.default {
+        didSet {
+            if tool.kind != oldValue.kind { previousToolKind = oldValue.kind }
+        }
+    }
+    /// The tool used before the current one, for the Pencil's double-tap.
+    private(set) var previousToolKind = EditorTool.default.kind
     var currentPage = 0
 
     private let library: LibraryModel
@@ -126,6 +132,11 @@ final class EditorModel {
         }.value
         guard let png else { return }
         try? await store.saveThumbnail(png, page: page.id, in: notebook.id)
+    }
+
+    /// A double-tap or squeeze on the Pencil: switches to the eraser and back, or to the previous tool.
+    func pencilTapped(_ action: PencilTapAction) {
+        tool.kind = tool.kind.afterPencilTap(action, previous: previousToolKind)
     }
 
     /// Adds a blank page at the end of the notebook.
