@@ -48,8 +48,6 @@ struct Pen: Codable, Hashable, Identifiable {
             let range = inkType.validWidthRange
             return Double(range.lowerBound)...Double(range.upperBound)
         }
-
-        var defaultWidth: Double { Double(inkType.defaultWidth) }
     }
 
     /// The colour palette; anything else is a custom colour.
@@ -79,11 +77,45 @@ struct Pen: Codable, Hashable, Identifiable {
         }
     }
 
-    init(id: UUID = UUID(), ink: Ink, color: UInt32, width: Double? = nil) {
+    /// Fine, medium or bold, tuned to each ink: inks' widths range from 0.5 (monoline) to 80 (watercolour).
+    enum Size: CaseIterable {
+        case fine, medium, bold
+
+        var name: String {
+            switch self {
+            case .fine: "Fine"
+            case .medium: "Medium"
+            case .bold: "Bold"
+            }
+        }
+
+        func width(for ink: Ink) -> Double {
+            let fraction =
+                switch self {
+                case .fine: 0.06
+                case .medium: 0.15
+                case .bold: 0.35
+                }
+            let range = ink.widthRange
+            return range.lowerBound + fraction * (range.upperBound - range.lowerBound)
+        }
+    }
+
+    init(id: UUID = UUID(), ink: Ink, color: UInt32, size: Size = .medium) {
+        self.init(id: id, ink: ink, color: color, width: size.width(for: ink))
+    }
+
+    init(id: UUID = UUID(), ink: Ink, color: UInt32, width: Double) {
         self.id = id
         self.ink = ink
         self.color = color
-        self.width = width ?? ink.defaultWidth
+        self.width = width
+    }
+
+    /// The preset nearest the pen's width.
+    var size: Size {
+        get { Size.allCases.min { abs($0.width(for: ink) - width) < abs($1.width(for: ink) - width) } ?? .medium }
+        set { width = newValue.width(for: ink) }
     }
 
     var clampedWidth: Double { min(max(width, ink.widthRange.lowerBound), ink.widthRange.upperBound) }
@@ -97,27 +129,14 @@ struct Pen: Codable, Hashable, Identifiable {
         return ink == .marker ? base.withAlphaComponent(0.9) : base
     }
 
-    /// Switches ink, keeping the width at the same place in the new ink's range.
+    /// Switches ink, keeping the size: a bold fountain pen becomes a bold watercolour.
     mutating func change(ink newInk: Ink) {
-        let old = ink.widthRange
-        let fraction = (clampedWidth - old.lowerBound) / (old.upperBound - old.lowerBound)
-        let new = newInk.widthRange
+        let size = size
         ink = newInk
-        width = new.lowerBound + fraction * (new.upperBound - new.lowerBound)
+        width = size.width(for: newInk)
     }
 
     var pkTool: PKInkingTool { PKInkingTool(ink.inkType, color: uiColor, width: clampedWidth) }
-
-    /// `0xRRGGBB` for a colour from the colour picker; channels outside sRGB are clamped.
-    static func hex(of color: UIColor) -> UInt32 {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        func byte(_ channel: CGFloat) -> UInt32 { UInt32((min(max(channel, 0), 1) * 255).rounded()) }
-        return byte(red) << 16 | byte(green) << 8 | byte(blue)
-    }
 }
 
 /// Your pens, the eraser and the lasso, and which one is in hand. Remembered for the whole app.
@@ -146,7 +165,7 @@ struct PenCase: Codable, Equatable {
     static let `default`: PenCase = {
         let pens = [
             Pen(ink: .fountainPen, color: Pen.Swatch.black.hex),
-            Pen(ink: .pen, color: Pen.Swatch.red.hex, width: 2),
+            Pen(ink: .pen, color: Pen.Swatch.red.hex, size: .fine),
             Pen(ink: .marker, color: Pen.Swatch.yellow.hex),
         ]
         return PenCase(pens: pens, selection: .pen(pens[0].id))

@@ -11,22 +11,23 @@ struct PenCaseRail: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 4) {
             ForEach(penCase.pens) { pen in
-                toolButton(.pen(pen.id), label: pen.ink.name + ", " + pen.colorName) {
-                    PenNib(pen: pen)
+                toolButton(.pen(pen.id), label: "\(pen.ink.name), \(pen.colorName)") { isSelected in
+                    PenSwatch(pen: pen, isSelected: isSelected)
                 }
                 .popover(isPresented: isEditing(.pen(pen.id)), arrowEdge: .leading) {
                     PenSettings(penCase: $penCase, penID: pen.id) { editing = nil }
                 }
             }
             separator
-            toolButton(.eraser, label: "Eraser") { symbol("eraser") }
+            toolButton(.eraser, label: "Eraser") { _ in symbol("eraser") }
                 .popover(isPresented: isEditing(.eraser), arrowEdge: .leading) {
                     EraserSettings(eraser: $penCase.eraser)
                 }
-            toolButton(.lasso, label: "Lasso") { symbol("lasso") }
+            toolButton(.lasso, label: "Lasso") { _ in symbol("lasso") }
             if penCase.canAddPen {
+                separator
                 Button {
                     let pen = penCase.addPen()
                     editing = .pen(pen.id)
@@ -39,17 +40,27 @@ struct PenCaseRail: View {
                 .accessibilityLabel("Add a pen")
             }
         }
-        .padding(5)
-        .background(theme.colors.surface, in: .rect(cornerRadius: theme.metrics.radiusMedium))
-        .overlay(RoundedRectangle(cornerRadius: theme.metrics.radiusMedium).stroke(theme.colors.hairline))
+        .padding(6)
+        .background(theme.colors.surface, in: .rect(cornerRadius: theme.metrics.radiusLarge))
+        .overlay(RoundedRectangle(cornerRadius: theme.metrics.radiusLarge).stroke(theme.colors.hairline))
+        #if DEBUG
+            // Screenshots: `-editTool pen` or `-editTool eraser` opens that tool's settings on launch.
+            .task {
+                switch UserDefaults.standard.string(forKey: "editTool") {
+                case "pen": editing = penCase.selection
+                case "eraser": editing = .eraser
+                default: break
+                }
+            }
+        #endif
     }
 
     private var separator: some View {
-        Rectangle().fill(theme.colors.hairline).frame(width: 28, height: 1).padding(.vertical, 4)
+        Rectangle().fill(theme.colors.hairline).frame(width: 24, height: 1).padding(.vertical, 3)
     }
 
     private func symbol(_ name: String) -> some View {
-        Image(systemName: name).font(.system(size: 18))
+        Image(systemName: name).font(.system(size: 17, weight: .regular))
     }
 
     private func isEditing(_ tool: PenCase.Tool) -> Binding<Bool> {
@@ -58,9 +69,10 @@ struct PenCaseRail: View {
 
     /// Picks the tool up, or opens its settings if it's already in hand. The lasso has none.
     private func toolButton<Label: View>(
-        _ tool: PenCase.Tool, label: String, @ViewBuilder content: () -> Label
+        _ tool: PenCase.Tool, label: String, @ViewBuilder content: (Bool) -> Label
     ) -> some View {
         let isSelected = penCase.selection == tool
+        let isPen = if case .pen = tool { true } else { false }
         return Button {
             if isSelected {
                 if tool != .lasso { editing = tool }
@@ -68,13 +80,15 @@ struct PenCaseRail: View {
                 penCase.select(tool)
             }
         } label: {
-            content()
+            content(isSelected)
                 .foregroundStyle(isSelected ? theme.colors.accent : theme.colors.textPrimary)
-                .frame(width: 44, height: 46)
-                .background(
-                    isSelected ? theme.colors.accentTint : theme.colors.surface,
-                    in: .rect(cornerRadius: theme.metrics.radiusSmall)
-                )
+                .frame(width: 44, height: 44)
+                .background {
+                    // Pens show selection with a ring of their own; tools with a tinted tile.
+                    if isSelected && !isPen {
+                        RoundedRectangle(cornerRadius: theme.metrics.radiusSmall).fill(theme.colors.accentTint)
+                    }
+                }
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -84,46 +98,48 @@ struct PenCaseRail: View {
     }
 }
 
-/// A pen's tip in its colour, shaped by its ink and as thick as its width.
-struct PenNib: View {
+extension Pen.Ink {
+    var symbol: String {
+        switch self {
+        case .fountainPen: "pencil.tip"
+        case .pen: "pencil"
+        case .pencil: "pencil.line"
+        case .marker: "highlighter"
+        case .monoline: "scribble"
+        case .watercolor: "paintbrush"
+        case .crayon: "paintbrush.pointed"
+        case .reed: "signature"
+        }
+    }
+}
+
+/// A pen in the rail: a well of its colour with its ink's icon on it, ringed in the accent when in hand.
+struct PenSwatch: View {
     let pen: Pen
+    var isSelected = false
+    var size = 30.0
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        let color = RGBA(hex: pen.color).color
-        let range = pen.ink.widthRange
-        let fraction = (pen.clampedWidth - range.lowerBound) / (range.upperBound - range.lowerBound)
-        let width = 3 + fraction * 7
-        Group {
-            switch pen.ink {
-            case .fountainPen:
-                NibShape().fill(color).frame(width: width + 4, height: 24)
-            case .marker, .watercolor, .crayon:
-                RoundedRectangle(cornerRadius: 2).fill(color).frame(width: width + 4, height: 24)
-            default:
-                Capsule().fill(color).frame(width: width, height: 24)
+        let ink = RGBA(hex: pen.color)
+        Circle().fill(ink.color)
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: pen.ink.symbol)
+                    .font(.system(size: size * 0.45, weight: .semibold))
+                    // Dark icon on light inks, light icon on dark ones.
+                    .foregroundStyle(ink.luminance > 0.4 ? RGBA(hex: 0x141414).color : RGBA(hex: 0xFFFFFF).color)
             }
-        }
-        // On a scrap of paper, so black ink shows on a dark rail and yellow ink on a light one.
-        .frame(width: 26, height: 32)
-        .background(PaperColor.ivory.swatch, in: .rect(cornerRadius: 5))
+            // An edge, so black ink still reads on a dark rail.
+            .overlay(Circle().stroke(theme.colors.hairline, lineWidth: 1))
+            .padding(3)
+            .overlay {
+                if isSelected { Circle().stroke(theme.colors.accent, lineWidth: 2) }
+            }
     }
 }
 
-/// A fountain pen nib: a point, shoulders, and a straight base.
-private struct NibShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.3))
-            path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.7, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.3, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.3))
-            path.closeSubpath()
-        }
-    }
-}
-
-/// A pen's ink, width and colour, with a sample stroke; duplicate or remove it.
+/// A pen's ink, size and colour, all from presets; duplicate or remove it.
 private struct PenSettings: View {
     @Binding var penCase: PenCase
     let penID: UUID
@@ -132,18 +148,18 @@ private struct PenSettings: View {
 
     var body: some View {
         if let pen {
-            VStack(alignment: .leading, spacing: 16) {
-                header(pen)
-                StrokePreview(pen: pen)
-                    .frame(height: 64)
-                    .clipShape(.rect(cornerRadius: theme.metrics.radiusSmall))
-                width(pen)
-                colours(pen)
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 14) {
+                    inkMenu(pen)
+                    sizes(pen)
+                    colours(pen)
+                }
+                .padding(16)
+                Rectangle().fill(theme.colors.hairline).frame(height: 1)
                 actions
             }
-            .padding(16)
-            .frame(width: 300)
-            .background(theme.colors.elevated)
+            .frame(width: 320)
+            .presentationBackground(theme.colors.elevated)
             .presentationCompactAdaptation(.popover)
         }
     }
@@ -156,164 +172,156 @@ private struct PenSettings: View {
         penCase.update(edited)
     }
 
-    private func header(_ pen: Pen) -> some View {
-        HStack {
-            Text(pen.ink.name).style(theme.typography.headline).foregroundStyle(theme.colors.textPrimary)
-            Spacer()
-            Menu {
-                Picker("Ink", selection: Binding(get: { pen.ink }, set: { ink in update { $0.change(ink: ink) } })) {
-                    ForEach(Pen.Ink.allCases, id: \.self) { Text($0.name).tag($0) }
-                }
-            } label: {
-                Text("Change ink").style(theme.typography.body).foregroundStyle(theme.colors.accent)
+    /// The pen's ink is its title; tap it to change ink.
+    private func inkMenu(_ pen: Pen) -> some View {
+        Menu {
+            Picker("Ink", selection: Binding(get: { pen.ink }, set: { ink in update { $0.change(ink: ink) } })) {
+                ForEach(Pen.Ink.allCases, id: \.self) { Label($0.name, systemImage: $0.symbol).tag($0) }
             }
-        }
-    }
-
-    private func width(_ pen: Pen) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                label("Width")
-                Spacer()
-                Text(String(format: "%.1f pt", pen.widthInPoints)).style(theme.typography.mono)
+        } label: {
+            HStack(spacing: 8) {
+                Text(pen.ink.name).style(theme.typography.title).foregroundStyle(theme.colors.textPrimary)
+                Image(systemName: "chevron.down").font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(theme.colors.textSecondary)
             }
-            HStack(spacing: 10) {
-                Circle().fill(RGBA(hex: pen.color).color).frame(width: 5, height: 5)
-                Slider(
-                    value: Binding(get: { pen.clampedWidth }, set: { width in update { $0.width = width } }),
-                    in: pen.ink.widthRange
-                )
-                .accessibilityLabel("Width")
-                Circle().fill(RGBA(hex: pen.color).color).frame(width: 16, height: 16)
+            .contentShape(.rect)
+        }
+        .accessibilityLabel("Ink: \(pen.ink.name)")
+    }
+
+    private func sizes(_ pen: Pen) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            row("Size", value: String(format: "%.1f pt", pen.widthInPoints))
+            HStack(spacing: 6) {
+                ForEach(Array(Pen.Size.allCases.enumerated()), id: \.element) { index, size in
+                    let isSelected = pen.size == size
+                    Button {
+                        update { $0.size = size }
+                    } label: {
+                        VStack(spacing: 6) {
+                            let dot = 4 + Double(index) * 4
+                            Circle().frame(width: dot, height: dot).frame(height: 14)
+                            Text(size.name).style(theme.typography.caption)
+                        }
+                        .foregroundStyle(isSelected ? theme.colors.accent : theme.colors.textPrimary)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(
+                            isSelected ? theme.colors.accentTint : theme.colors.canvas,
+                            in: .rect(cornerRadius: theme.metrics.radiusSmall)
+                        )
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(size.name)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
             }
         }
     }
 
     private func colours(_ pen: Pen) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            label("Colour")
-            HStack(spacing: 10) {
+            row("Colour", value: pen.colorName)
+            HStack(spacing: 0) {
                 ForEach(Pen.Swatch.allCases, id: \.self) { swatch in
                     Button {
                         update { $0.color = swatch.hex }
                     } label: {
-                        Circle().fill(RGBA(hex: swatch.hex).color).frame(width: 28, height: 28)
-                            .overlay(Circle().stroke(theme.colors.hairline))
-                            .overlay(
-                                Circle().stroke(theme.colors.accent, lineWidth: pen.color == swatch.hex ? 2 : 0)
-                                    .padding(-4)
-                            )
-                            .frame(width: 34, height: 34)
-                            .contentShape(.circle)
+                        Circle().fill(RGBA(hex: swatch.hex).color)
+                            .frame(width: 26, height: 26)
+                            .overlay(Circle().stroke(theme.colors.hairline, lineWidth: 1))
+                            .padding(3)
+                            .overlay {
+                                if pen.color == swatch.hex { Circle().stroke(theme.colors.accent, lineWidth: 2) }
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .contentShape(.rect)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(swatch.name)
                     .accessibilityAddTraits(pen.color == swatch.hex ? .isSelected : [])
                 }
-                ColorPicker(
-                    "Custom colour",
-                    selection: Binding(
-                        get: { RGBA(hex: pen.color).color },
-                        set: { color in update { $0.color = Pen.hex(of: UIColor(color)) } }),
-                    supportsOpacity: false
-                )
-                .labelsHidden()
             }
         }
     }
 
     private var actions: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
             Button {
                 if let copy = penCase.duplicate(penID) { penCase.select(.pen(copy.id)) }
                 dismiss()
             } label: {
-                Text("Duplicate pen").style(theme.typography.body).foregroundStyle(theme.colors.textPrimary)
-                    .frame(maxWidth: .infinity, minHeight: 38)
-                    .background(theme.colors.canvas, in: .rect(cornerRadius: theme.metrics.radiusSmall))
+                Label("Duplicate", systemImage: "plus.square.on.square")
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .contentShape(.rect)
             }
-            .buttonStyle(.plain)
             .disabled(!penCase.canAddPen)
-            .opacity(penCase.canAddPen ? 1 : 0.5)
-            Button {
+            Rectangle().fill(theme.colors.hairline).frame(width: 1, height: 22)
+            Button(role: .destructive) {
                 dismiss()
                 penCase.remove(penID)
             } label: {
-                Text("Remove").style(theme.typography.body).foregroundStyle(theme.colors.danger)
-                    .frame(maxWidth: .infinity, minHeight: 38)
+                Label("Remove", systemImage: "trash")
+                    .foregroundStyle(theme.colors.danger)
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .contentShape(.rect)
             }
-            .buttonStyle(.plain)
             .disabled(!penCase.canRemovePen)
-            .opacity(penCase.canRemovePen ? 1 : 0.5)
         }
+        .font(theme.typography.body.font)
+        .buttonStyle(SidebarButtonStyle())
     }
 
-    private func label(_ text: String) -> some View {
-        Text(text.uppercased()).font(.system(size: 11.5, weight: .semibold)).tracking(0.6)
-            .foregroundStyle(theme.colors.textSecondary)
+    private func row(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title).style(theme.typography.caption).foregroundStyle(theme.colors.textSecondary)
+            Spacer()
+            Text(value).style(theme.typography.mono).foregroundStyle(theme.colors.textSecondary)
+        }
     }
 }
 
-/// A sample stroke drawn by PencilKit itself, so it looks exactly like writing with the pen.
-private struct StrokePreview: View {
-    let pen: Pen
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                PaperColor.ivory.swatch
-                Image(uiImage: Self.image(pen: pen, size: proxy.size))
-            }
-        }
-    }
-
-    static func image(pen: Pen, size: CGSize) -> UIImage {
-        guard size.width > 20, size.height > 20 else { return UIImage() }
-        let inset = 14.0
-        let points = (0...40).map { i in
-            let t = Double(i) / 40
-            let x = inset + t * (size.width - 2 * inset)
-            let y = size.height / 2 + sin(t * .pi * 3) * (size.height / 2 - inset)
-            return PKStrokePoint(
-                location: CGPoint(x: x, y: y), timeOffset: t,
-                size: CGSize(width: pen.clampedWidth, height: pen.clampedWidth),
-                opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
-        }
-        let stroke = PKStroke(
-            ink: PKInk(pen.ink.inkType, color: pen.uiColor),
-            path: PKStrokePath(controlPoints: points, creationDate: Date()))
-        var image = UIImage()
-        // Ink is content: render it as on paper, never inverted for dark mode.
-        UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
-            image = PKDrawing(strokes: [stroke]).image(from: CGRect(origin: .zero, size: size), scale: 2)
-        }
-        return image
-    }
-}
-
-/// Stroke or pixel erasing.
+/// Whole-stroke or pixel erasing.
 private struct EraserSettings: View {
     @Binding var eraser: PenCase.Eraser
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Eraser").style(theme.typography.headline).foregroundStyle(theme.colors.textPrimary)
-            Picker("Eraser", selection: $eraser) {
-                Text("Whole strokes").tag(PenCase.Eraser.stroke)
-                Text("Pixels").tag(PenCase.Eraser.pixel)
-            }
-            .pickerStyle(.segmented)
-            Text(
-                eraser == .stroke
-                    ? "Removes every stroke it touches." : "Rubs out only the part of a stroke it touches."
-            )
-            .style(theme.typography.caption).foregroundStyle(theme.colors.textSecondary)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Eraser").style(theme.typography.title).foregroundStyle(theme.colors.textPrimary)
+                .padding(16)
+            option(.stroke, title: "Whole strokes", detail: "Removes every stroke it touches.")
+            Rectangle().fill(theme.colors.hairline).frame(height: 1).padding(.leading, 16)
+            option(.pixel, title: "Pixels", detail: "Rubs out only what it touches.")
         }
-        .padding(16)
+        .padding(.bottom, 6)
         .frame(width: 280)
-        .background(theme.colors.elevated)
+        .presentationBackground(theme.colors.elevated)
         .presentationCompactAdaptation(.popover)
+    }
+
+    private func option(_ value: PenCase.Eraser, title: String, detail: String) -> some View {
+        Button {
+            eraser = value
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).style(theme.typography.body).foregroundStyle(theme.colors.textPrimary)
+                    Text(detail).style(theme.typography.caption).foregroundStyle(theme.colors.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.colors.accent)
+                    .opacity(eraser == value ? 1 : 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .contentShape(.rect)
+        }
+        .buttonStyle(SidebarButtonStyle())
+        .accessibilityLabel(title)
+        .accessibilityHint(detail)
+        .accessibilityAddTraits(eraser == value ? .isSelected : [])
     }
 }

@@ -73,19 +73,26 @@ struct PenCaseTests {
         #expect(abs(pen.clampedWidth - Pen.Ink.monoline.widthRange.lowerBound) < 0.0001)
     }
 
-    @Test func changingInkKeepsTheRelativeWidth() {
-        let range = PKInk.InkType.fountainPen.validWidthRange
-        var pen = Pen(ink: .fountainPen, color: 0, width: range.lowerBound + (range.upperBound - range.lowerBound) / 2)
-        pen.change(ink: .watercolor)
-        let watercolor = PKInk.InkType.watercolor.validWidthRange
-        #expect(abs(pen.width - (watercolor.lowerBound + watercolor.upperBound) / 2) < 0.001)
+    @Test func sizesGrowFromFineToBoldWithinEveryInk() {
+        for ink in Pen.Ink.allCases {
+            let widths = Pen.Size.allCases.map { $0.width(for: ink) }
+            #expect(widths == widths.sorted() && Set(widths).count == 3, "\(ink)")
+            #expect(widths.allSatisfy { ink.widthRange.contains($0) }, "\(ink)")
+        }
     }
 
-    @Test func customColoursRoundTripAsHex() {
-        // swiftlint:disable:next no_raw_colors
-        #expect(Pen.hex(of: UIColor(red: 0x24 / 255, green: 0x57 / 255, blue: 0xC5 / 255, alpha: 1)) == 0x2457C5)
-        // Display P3 reds beyond sRGB clamp rather than wrap.
-        #expect(Pen.hex(of: UIColor(displayP3Red: 1, green: 0, blue: 0, alpha: 1)) >> 16 == 0xFF)
+    @Test func aPenKnowsItsSize() {
+        var pen = Pen(ink: .fountainPen, color: 0, size: .bold)
+        #expect(pen.size == .bold)
+        pen.size = .fine
+        #expect(abs(pen.width - Pen.Size.fine.width(for: .fountainPen)) < 0.0001)
+    }
+
+    @Test func changingInkKeepsTheSize() {
+        var pen = Pen(ink: .fountainPen, color: 0, size: .bold)
+        pen.change(ink: .watercolor)
+        #expect(pen.size == .bold)
+        #expect(abs(pen.width - Pen.Size.bold.width(for: .watercolor)) < 0.0001)
     }
 
     @Test func widthInPointsHalvesCanvasUnits() {

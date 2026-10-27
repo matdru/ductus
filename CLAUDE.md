@@ -14,6 +14,7 @@ mise install && mise run generate   # produces Ductus.xcworkspace
 - `mise run test` — all unit tests on the `iPad Pro 13-inch (M5)` simulator (iOS 27.0)
 - `mise run lint` — SwiftLint + swift-format lint (must be clean before committing)
 - `mise run format` — swift-format in place
+- `mise run ui-shots` — taps through the app on the simulator (XCUITest, `Apps/Ductus/UITests`) and saves a screenshot per step to `.build/ui-shots`; the app launches with `-uiTesting` on an empty library. Takes ~1 minute: use it when debugging UI or adjusting visuals, not routinely.
 - `mise run pull-logs` — copy touch recordings from the iPad to `.build/devlogs` (debug builds: REC in the editor's status bar logs every touch, recognizer state and undo/tool event as JSON Lines). Use these to investigate gesture and writing bugs the user reports.
 
 ## Rules

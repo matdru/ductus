@@ -33,7 +33,9 @@ func module(_ name: String, dependencies: [TargetDependency] = []) -> [Target] {
     ]
 }
 
-func app(_ name: String, bundleId: String, dependencies: [TargetDependency], tests: Bool) -> [Target] {
+func app(
+    _ name: String, bundleId: String, dependencies: [TargetDependency], tests: Bool, uiTests: Bool = false
+) -> [Target] {
     var targets: [Target] = [
         .target(
             name: name,
@@ -67,6 +69,20 @@ func app(_ name: String, bundleId: String, dependencies: [TargetDependency], tes
                 settings: baseSettings
             ))
     }
+    if uiTests {
+        // Taps through the app on the simulator and saves screenshots: `mise run ui-shots`.
+        targets.append(
+            .target(
+                name: "\(name)UITests",
+                destinations: destinations,
+                product: .uiTests,
+                bundleId: "\(bundleId).uitests",
+                deploymentTargets: deploymentTargets,
+                sources: ["Apps/\(name)/UITests/**"],
+                dependencies: [.target(name: name)],
+                settings: baseSettings
+            ))
+    }
     return targets
 }
 
@@ -90,7 +106,7 @@ let project = Project(
                 .target(name: "InkCore"), .target(name: "InkPencilKit"), .target(name: "DesignSystem"),
                 .target(name: "NotebookCore"), .target(name: "NotebookStore"), .target(name: "Paper"),
             ],
-            tests: true)
+            tests: true, uiTests: true)
         // Throwaway look-and-feel prototype (Linear DRU-32); not shipped.
         + app(
             "Prototype", bundleId: "app.ductus.prototype",

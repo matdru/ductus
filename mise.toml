@@ -8,7 +8,7 @@ run = "tuist generate --no-open"
 
 [tasks.test]
 description = "Run all unit tests on the iPad simulator"
-run = "tuist test --no-selective-testing --device 'iPad Pro 13-inch (M5)' --os 27.0"
+run = "tuist test --no-selective-testing --skip-ui-tests --device 'iPad Pro 13-inch (M5)' --os 27.0"
 
 [tasks.lint]
 description = "SwiftLint + swift-format lint"
@@ -55,4 +55,17 @@ for f in $files; do
     --domain-identifier app.ductus --source "Documents/DevLogs/$f" --destination ".build/devlogs/$f" > /dev/null
 done
 ls -1t .build/devlogs | head -5
+"""
+
+[tasks.ui-shots]
+description = "Tap through the app on the simulator (UI tests) and save screenshots to .build/ui-shots"
+run = """
+#!/usr/bin/env zsh
+set -e
+rm -rf .build/ui-shots && mkdir -p .build/ui-shots
+tuist generate --no-open > /dev/null
+TEST_RUNNER_SHOTS_DIR="$PWD/.build/ui-shots" xcodebuild test -workspace Ductus.xcworkspace -scheme Ductus-Workspace \
+  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' \
+  -only-testing:DuctusUITests -collect-test-diagnostics never 2>&1 | grep -E "error:|failed|passed|Test Suite|XCTAssert|TEST (SUCCEEDED|FAILED)" || true
+ls .build/ui-shots
 """
