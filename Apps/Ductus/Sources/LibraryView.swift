@@ -16,6 +16,8 @@ struct LibraryView: View {
     var body: some View {
         NavigationSplitView {
             LibrarySidebar(model: model, showsNewShelf: $showsNewShelf)
+                // Narrower than the system default, which takes ~40% of an 11" iPad in portrait.
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
         } detail: {
             NavigationStack {
                 Group {
