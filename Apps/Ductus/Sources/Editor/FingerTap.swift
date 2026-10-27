@@ -11,6 +11,7 @@ final class FingerTap: NSObject, UIGestureRecognizerDelegate {
 
     private let undo: () -> Void
     private let redo: () -> Void
+    private var own: [UIGestureRecognizer] = []
 
     init(on view: UIView, undo: @escaping () -> Void, redo: @escaping () -> Void) {
         self.undo = undo
@@ -26,6 +27,7 @@ final class FingerTap: NSObject, UIGestureRecognizerDelegate {
             recognizer.delegate = self
             view.addGestureRecognizer(recognizer)
         }
+        own = [twoFingers, threeFingers]
     }
 
     @objc private func tappedWithTwoFingers() { undo() }
@@ -34,6 +36,17 @@ final class FingerTap: NSObject, UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         Self.isFinger(majorRadius: touch.majorRadius)
     }
+
+    /// Other taps (PencilKit's one-finger tap opens its Select All / Insert Space menu) wait until this isn't a
+    /// two- or three-finger tap. Fingers never land at exactly the same moment, so without this the first finger of
+    /// a three-finger tap can open the menu, and the next tap presses one of its buttons.
+    func delays(_ other: UIGestureRecognizer) -> Bool {
+        other is UITapGestureRecognizer && !own.contains(other)
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer
+    ) -> Bool { delays(other) }
 
     /// Taps never block scrolling or pinch-zoom, and vice versa.
     func gestureRecognizer(

@@ -3,6 +3,7 @@ import NotebookCore
 import NotebookStore
 import PencilKit
 import Testing
+import UIKit
 
 @testable import Ductus
 
@@ -60,6 +61,16 @@ struct UndoTests {
         #expect(FingerTap.isFinger(majorRadius: 8))
         #expect(FingerTap.isFinger(majorRadius: 24))
         #expect(!FingerTap.isFinger(majorRadius: 50))
+    }
+
+    @Test func otherTapsWaitForTheFingerTaps() {
+        let view = UIView()
+        let fingerTap = FingerTap(on: view, undo: {}, redo: {})
+        let pencilKitTap = UITapGestureRecognizer()
+        #expect(fingerTap.delays(pencilKitTap))
+        #expect(!fingerTap.delays(UIPinchGestureRecognizer()))
+        #expect(!fingerTap.delays(UIPanGestureRecognizer()))
+        for own in view.gestureRecognizers ?? [] { #expect(!fingerTap.delays(own)) }
     }
 
     // MARK: Adding pages
