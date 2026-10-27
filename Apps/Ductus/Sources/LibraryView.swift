@@ -9,13 +9,14 @@ struct LibraryView: View {
     @Environment(SettingsStore.self) private var settings
     @State private var showsNewNotebook = false
     @State private var showsSettings = false
+    @State private var columns = NavigationSplitViewVisibility.all
     @State private var showsNewShelf = false
     @State private var newShelfName = ""
     @State private var openNotebook: Notebook?
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             LibrarySidebar(model: model, showsNewShelf: $showsNewShelf, showsSettings: $showsSettings)
                 // Narrower than the system default, which takes ~40% of an 11" iPad in portrait.
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
@@ -25,11 +26,15 @@ struct LibraryView: View {
                     if model.isLoaded && model.notebooks.isEmpty {
                         FirstLaunchView { draft in perform { openNotebook = try await model.create(draft) } }
                     } else {
-                        LibraryContent(model: model, showsNewNotebook: $showsNewNotebook, open: open, perform: perform)
+                        LibraryContent(
+                            model: model, showsNewNotebook: $showsNewNotebook,
+                            showSidebar: columns == .detailOnly ? { columns = .all } : nil, open: open,
+                            perform: perform)
                     }
                 }
                 .background(theme.colors.canvas)
-                .navigationBarTitleDisplayMode(.inline)
+                // The search row takes the navigation bar's place, so the notebooks start higher.
+                .toolbar(.hidden, for: .navigationBar)
             }
         }
         .tint(theme.colors.accent)

@@ -6,6 +6,8 @@ import SwiftUI
 struct LibraryContent: View {
     @Bindable var model: LibraryModel
     @Binding var showsNewNotebook: Bool
+    /// Brings the sidebar back; `nil` while it's showing.
+    let showSidebar: (() -> Void)?
     let open: (Notebook) -> Void
     let perform: (@escaping @MainActor () async throws -> Void) -> Void
     @Environment(\.theme) private var theme
@@ -15,26 +17,33 @@ struct LibraryContent: View {
     @State private var deleting: Notebook?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(title).style(theme.typography.largeTitle).foregroundStyle(theme.colors.textPrimary)
-                    Text(stats).style(theme.typography.mono).foregroundStyle(theme.colors.textSecondary)
-                }
-                let notebooks = model.visibleNotebooks
-                if notebooks.isEmpty {
-                    emptySection
-                } else {
-                    if model.section == .all && model.searchText.isEmpty {
-                        // Cards are where you left off, whatever order the list below is in.
-                        recentCards(Array(model.notebooks(in: .recent).prefix(3)))
+        VStack(spacing: 0) {
+            // Stays put while the list scrolls, level with the sidebar's title.
+            header
+                .padding(.horizontal, 28)
+                .padding(.top, 6)
+                .padding(.bottom, 10)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(title).style(theme.typography.largeTitle).foregroundStyle(theme.colors.textPrimary)
+                        Text(stats).style(theme.typography.mono).foregroundStyle(theme.colors.textSecondary)
                     }
-                    NotebookTable(notebooks: notebooks, model: model, open: open) { menu(for: $0) }
+                    let notebooks = model.visibleNotebooks
+                    if notebooks.isEmpty {
+                        emptySection
+                    } else {
+                        if model.section == .all && model.searchText.isEmpty {
+                            // Cards are where you left off, whatever order the list below is in.
+                            recentCards(Array(model.notebooks(in: .recent).prefix(3)))
+                        }
+                        NotebookTable(notebooks: notebooks, model: model, open: open) { menu(for: $0) }
+                    }
                 }
+                .padding(.horizontal, 28)
+                .padding(.top, 8)
+                .padding(.bottom, 20)
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 20)
         }
         .alert("Rename notebook", isPresented: .init(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Title", text: $newTitle)
@@ -76,6 +85,17 @@ struct LibraryContent: View {
 
     private var header: some View {
         HStack(spacing: 10) {
+            if let showSidebar {
+                Button(action: showSidebar) {
+                    Image(systemName: "sidebar.left")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(theme.colors.textSecondary)
+                        .frame(width: 40, height: 40)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Show sidebar")
+            }
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(theme.colors.textSecondary)
                 TextField("Search notebooks", text: $model.searchText)
