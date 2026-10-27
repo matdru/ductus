@@ -114,6 +114,32 @@ public actor NotebookStore {
         try files.removeItem(at: url)
     }
 
+    /// Bytes on disk, by kind, for Settings' storage breakdown.
+    public struct StorageUsage: Sendable, Equatable {
+        public var ink: Int64 = 0
+        public var thumbnails: Int64 = 0
+        /// Manifests and the library file.
+        public var other: Int64 = 0
+        public var total: Int64 { ink + thumbnails + other }
+    }
+
+    public func storageUsage() -> StorageUsage {
+        var usage = StorageUsage()
+        let keys: Set<URLResourceKey> = [.fileSizeKey, .isRegularFileKey]
+        guard let walker = files.enumerator(at: root, includingPropertiesForKeys: Array(keys)) else { return usage }
+        for case let url as URL in walker {
+            guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true else { continue }
+            // The bytes the file holds, not its allocated blocks, so small files aren't rounded up to 4 KB.
+            let size = Int64(values.fileSize ?? 0)
+            switch url.deletingLastPathComponent().lastPathComponent {
+            case Self.pagesDirectory: usage.ink += size
+            case Self.thumbnailsDirectory: usage.thumbnails += size
+            default: usage.other += size
+            }
+        }
+        return usage
+    }
+
     private func packageURL(_ notebook: UUID) -> URL {
         root.appending(path: "\(notebook.uuidString).\(Self.packageExtension)")
     }

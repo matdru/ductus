@@ -42,14 +42,16 @@ final class EditorModel {
 
     private let library: LibraryModel
     private let store: NotebookStore
+    private let opensAtLastPage: Bool
     /// What's on disk for each page, to skip unchanged pages. `nil` means no file.
     private var savedData: [UUID: Data] = [:]
     private var autosave: Task<Void, Never>?
 
-    init(notebook: Notebook, library: LibraryModel, store: NotebookStore) {
+    init(notebook: Notebook, library: LibraryModel, store: NotebookStore, opensAtLastPage: Bool = true) {
         self.notebook = notebook
         self.library = library
         self.store = store
+        self.opensAtLastPage = opensAtLastPage
         layout = PageLayout(size: notebook.size, pageCount: notebook.pages.count)
     }
 
@@ -70,7 +72,7 @@ final class EditorModel {
         }
         drawing = layout.combine(pages)
         revision += 1
-        currentPage = notebook.pages.firstIndex { $0.id == notebook.lastViewedPageID } ?? 0
+        currentPage = opensAtLastPage ? notebook.pages.firstIndex { $0.id == notebook.lastViewedPageID } ?? 0 : 0
         isLoaded = true
     }
 
@@ -88,6 +90,7 @@ final class EditorModel {
 
     func saveNow() async {
         autosave?.cancel()
+        await rememberPage()
         guard saveState == .unsaved else { return }
         saveState = .saving
         let pages = layout.split(drawing)
@@ -195,6 +198,19 @@ final class EditorModel {
         layout = PageLayout(size: notebook.size, pageCount: notebook.pages.count)
         drawing = layout.combine(pages)
         revision += 1
+    }
+
+    /// Records the page on screen, so the notebook can reopen there.
+    private func rememberPage() async {
+        guard notebook.pages.indices.contains(currentPage) else { return }
+        let page = notebook.pages[currentPage].id
+        guard notebook.lastViewedPageID != page else { return }
+        do {
+            try await library.setLastViewedPage(page, in: notebook.id)
+            refreshNotebook()
+        } catch {
+            // Losing the place is harmless; the notebook opens at its first page.
+        }
     }
 
     private func refreshNotebook() {

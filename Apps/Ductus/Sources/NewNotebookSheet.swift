@@ -10,10 +10,14 @@ struct NewNotebookSheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
 
-    init(shelves: [Shelf], initialShelf: UUID?, onCreate: @escaping (NotebookDraft) -> Void) {
+    /// `paper` and `size` start at the defaults chosen in Settings.
+    init(
+        shelves: [Shelf], initialShelf: UUID?, paper: Paper, size: PageSize,
+        onCreate: @escaping (NotebookDraft) -> Void
+    ) {
         self.shelves = shelves
         self.onCreate = onCreate
-        _draft = State(initialValue: NotebookDraft(shelfID: initialShelf))
+        _draft = State(initialValue: NotebookDraft(paper: paper, size: size, shelfID: initialShelf))
     }
 
     var body: some View {

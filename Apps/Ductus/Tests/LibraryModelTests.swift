@@ -121,4 +121,28 @@ struct LibraryModelTests {
         #expect(reloaded.modifiedAt > before)
         #expect(reloaded.pages[1].modifiedAt > grown.pages[1].modifiedAt)
     }
+
+    // MARK: Sorting
+
+    @Test func sortsByTitleOrCreationDate() async throws {
+        let model = await loadedModel()
+        let banana = try await model.create(draft("banana"))
+        try await model.create(draft("Apple"))
+        try await model.create(draft("cherry"))
+        try await model.rename(banana.id, to: "Banana")
+
+        #expect(model.visibleNotebooks.map(\.title) == ["Banana", "cherry", "Apple"])
+        model.sort = .title
+        #expect(model.visibleNotebooks.map(\.title) == ["Apple", "Banana", "cherry"])
+        model.sort = .created
+        #expect(model.visibleNotebooks.map(\.title) == ["cherry", "Apple", "Banana"])
+    }
+
+    @Test func recentStaysInEditOrderWhateverTheSort() async throws {
+        let model = await loadedModel()
+        try await model.create(draft("Apple"))
+        try await model.create(draft("Banana"))
+        model.sort = .title
+        #expect(model.notebooks(in: .recent).map(\.title) == ["Banana", "Apple"])
+    }
 }

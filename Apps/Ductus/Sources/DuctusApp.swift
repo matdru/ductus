@@ -4,15 +4,17 @@ import SwiftUI
 
 @main
 struct DuctusApp: App {
-    /// The chosen theme's id; the whole app re-skins when it changes.
-    @AppStorage("theme") private var themeID = Theme.graphite.id
+    /// The app's settings; the whole app re-skins when the theme or appearance changes.
+    @State private var settings = SettingsStore()
     @State private var library = LibraryModel(
         store: NotebookStore(root: URL.applicationSupportDirectory.appending(path: "Notebooks")))
 
     var body: some Scene {
         WindowGroup {
-            LibraryView(model: library, themeID: $themeID)
-                .environment(\.theme, Theme.named(themeID))
+            LibraryView(model: library)
+                .environment(settings)
+                .environment(\.theme, Theme.named(settings.settings.themeID))
+                .preferredColorScheme(settings.settings.appearance.colorScheme)
         }
     }
 }

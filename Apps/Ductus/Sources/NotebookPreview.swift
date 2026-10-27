@@ -82,6 +82,7 @@ struct NotebookCard: View {
     let library: LibraryModel
     @State private var thumbnail: UIImage?
     @Environment(\.theme) private var theme
+    @Environment(SettingsStore.self) private var settings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -90,7 +91,7 @@ struct NotebookCard: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 132)
                 .overlay {
-                    if let thumbnail {
+                    if let thumbnail, settings.settings.previewsPagesOnCards {
                         // A close-up of the latest writing (see `Thumbnailer`); narrower cards trim its sides.
                         Image(uiImage: thumbnail).resizable().scaledToFill()
                     } else {

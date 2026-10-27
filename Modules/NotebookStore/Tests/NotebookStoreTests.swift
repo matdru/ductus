@@ -153,4 +153,23 @@ struct NotebookStoreTests {
         try await store.deletePageData(page: page, in: notebook.id)
         #expect(try await store.thumbnailData(page: page, in: notebook.id) == nil)
     }
+
+    @Test func storageUsageCountsInkAndThumbnailsSeparately() async throws {
+        let notebook = notebook("Sizes")
+        let page = notebook.pages[0].id
+        try await store.save(notebook)
+        try await store.savePage(Data(count: 1000), page: page, in: notebook.id)
+        try await store.saveThumbnail(Data(count: 200), page: page, in: notebook.id)
+
+        let usage = await store.storageUsage()
+        #expect(usage.ink == 1000)
+        #expect(usage.thumbnails == 200)
+        // The manifest.
+        #expect(usage.other > 0)
+        #expect(usage.total == usage.ink + usage.thumbnails + usage.other)
+    }
+
+    @Test func emptyLibraryUsesNoStorage() async {
+        #expect(await store.storageUsage().total == 0)
+    }
 }

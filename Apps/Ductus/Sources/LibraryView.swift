@@ -5,9 +5,10 @@ import SwiftUI
 /// The library: shelves in a sidebar, notebooks in the detail column (Graphite design, DRU-39).
 struct LibraryView: View {
     @Bindable var model: LibraryModel
-    @Binding var themeID: String
     @Environment(\.theme) private var theme
+    @Environment(SettingsStore.self) private var settings
     @State private var showsNewNotebook = false
+    @State private var showsSettings = false
     @State private var showsNewShelf = false
     @State private var newShelfName = ""
     @State private var openNotebook: Notebook?
@@ -15,7 +16,7 @@ struct LibraryView: View {
 
     var body: some View {
         NavigationSplitView {
-            LibrarySidebar(model: model, showsNewShelf: $showsNewShelf)
+            LibrarySidebar(model: model, showsNewShelf: $showsNewShelf, showsSettings: $showsSettings)
                 // Narrower than the system default, which takes ~40% of an 11" iPad in portrait.
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
         } detail: {
@@ -29,27 +30,27 @@ struct LibraryView: View {
                 }
                 .background(theme.colors.canvas)
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        // Temporary until the Settings page (DRU-45).
-                        Picker("Theme", systemImage: "paintpalette", selection: $themeID) {
-                            ForEach(Theme.all) { Text($0.name).tag($0.id) }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                }
             }
         }
         .tint(theme.colors.accent)
         .sheet(isPresented: $showsNewNotebook) {
-            NewNotebookSheet(shelves: model.shelves, initialShelf: currentShelf) { draft in
+            NewNotebookSheet(
+                shelves: model.shelves, initialShelf: currentShelf, paper: settings.settings.newNotebookPaper,
+                size: settings.settings.newNotebookSize
+            ) { draft in
                 showsNewNotebook = false
                 perform { openNotebook = try await model.create(draft) }
             }
         }
         .fullScreenCover(item: $openNotebook) { notebook in
-            EditorView(notebook: notebook, library: model, shelfName: model.shelf(notebook.shelfID)?.name)
+            EditorView(
+                notebook: notebook, library: model, shelfName: model.shelf(notebook.shelfID)?.name,
+                opensAtLastPage: settings.settings.opensAtLastPage)
         }
+        .fullScreenCover(isPresented: $showsSettings) {
+            SettingsView(library: model)
+        }
+        .onChange(of: settings.settings.librarySort, initial: true) { model.sort = $1 }
         .alert("New shelf", isPresented: $showsNewShelf) {
             TextField("Name", text: $newShelfName)
             Button("Create") {
@@ -72,6 +73,8 @@ struct LibraryView: View {
                 if ProcessInfo.processInfo.arguments.contains("-openFirstNotebook") {
                     openNotebook = model.notebooks(in: .all).first
                 }
+                // `-openSettings` opens Settings on launch.
+                if ProcessInfo.processInfo.arguments.contains("-openSettings") { showsSettings = true }
             #endif
         }
     }
@@ -102,6 +105,7 @@ struct LibraryView: View {
 private struct LibrarySidebar: View {
     @Bindable var model: LibraryModel
     @Binding var showsNewShelf: Bool
+    @Binding var showsSettings: Bool
     @Environment(\.theme) private var theme
 
     var body: some View {
@@ -150,6 +154,24 @@ private struct LibrarySidebar: View {
             .padding(.bottom, 8)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Button {
+                showsSettings = true
+            } label: {
+                SidebarRow(isSelected: false) {
+                    symbol("gearshape").foregroundStyle(theme.colors.textSecondary)
+                } title: {
+                    Text("Settings").style(theme.typography.body).foregroundStyle(theme.colors.textPrimary)
+                } trailing: {
+                    EmptyView()
+                }
+            }
+            .buttonStyle(SidebarButtonStyle())
+            .padding(.horizontal, SidebarMetrics.margin)
+            .padding(.vertical, 8)
+            .background(theme.colors.sidebar)
+            .overlay(alignment: .top) { Rectangle().fill(theme.colors.hairline).frame(height: 1) }
+        }
         .background(theme.colors.sidebar)
         .navigationTitle("Ductus")
     }
@@ -177,8 +199,8 @@ private struct LibrarySidebar: View {
     }
 }
 
-/// The sidebar's grid.
-private enum SidebarMetrics {
+/// The sidebar's grid, shared with Settings' section list.
+enum SidebarMetrics {
     /// Space between the sidebar's edge and a row's background.
     static let margin = 12.0
     /// Space between a row's background and its icon; the shelf header lines up with it.
@@ -187,7 +209,7 @@ private enum SidebarMetrics {
 }
 
 /// One sidebar row on a shared grid: every icon sits in the same column, so every title starts at the same x.
-private struct SidebarRow<Icon: View, Title: View, Trailing: View>: View {
+struct SidebarRow<Icon: View, Title: View, Trailing: View>: View {
     let isSelected: Bool
     @ViewBuilder let icon: Icon
     @ViewBuilder let title: Title
@@ -213,7 +235,7 @@ private struct SidebarRow<Icon: View, Title: View, Trailing: View>: View {
 }
 
 /// Dims a sidebar row while it's pressed.
-private struct SidebarButtonStyle: ButtonStyle {
+struct SidebarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.opacity(configuration.isPressed ? 0.6 : 1)
     }

@@ -24,18 +24,21 @@ struct NotebookCanvasView: UIViewRepresentable {
     let controller: CanvasController
     let gutterColor: ThemeColor
     let hairlineColor: ThemeColor
+    let settings: AppSettings
 
     func makeCoordinator() -> NotebookCanvas { NotebookCanvas(model: model, controller: controller) }
 
     func makeUIView(context: Context) -> PKCanvasView {
         let canvas = context.coordinator.canvas
         context.coordinator.apply(gutter: gutterColor, hairline: hairlineColor)
+        context.coordinator.apply(settings)
         return canvas
     }
 
     func updateUIView(_ canvas: PKCanvasView, context: Context) {
         context.coordinator.sync(tool: model.tool, layout: model.layout, revision: model.revision)
         context.coordinator.apply(gutter: gutterColor, hairline: hairlineColor)
+        context.coordinator.apply(settings)
     }
 }
 
@@ -51,6 +54,7 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
     private var isApplyingModel = false
     private var zoom: ZoomRange?
     private var fingerTap: FingerTap?
+    private var settings = AppSettings()
     /// True while Ductus itself is undoing or redoing, to spot undos that came from elsewhere.
     private var isStepping = false
 
@@ -66,11 +70,6 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
         canvas.alwaysBounceVertical = true
         // Ink is content: keep PencilKit from inverting it in dark mode; the paper stays light.
         canvas.overrideUserInterfaceStyle = .light
-        #if targetEnvironment(simulator)
-            canvas.drawingPolicy = .anyInput
-        #else
-            canvas.drawingPolicy = .pencilOnly
-        #endif
         canvas.insertSubview(underlay, at: 0)
         underlay.configure(notebook: model.notebook, layout: layout)
         controller.canvas = self
@@ -138,6 +137,16 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
         if model.undoManager !== undoManager { model.undoManager = undoManager }
         controller.canUndo = undoManager.canUndo
         controller.canRedo = undoManager.canRedo
+    }
+
+    func apply(_ settings: AppSettings) {
+        self.settings = settings
+        #if targetEnvironment(simulator)
+            canvas.drawingPolicy = .anyInput
+        #else
+            canvas.drawingPolicy = settings.drawsWithFinger ? .anyInput : .pencilOnly
+        #endif
+        fingerTap?.setEnabled(undo: settings.twoFingerTapUndoes, redo: settings.threeFingerTapRedoes)
     }
 
     func apply(gutter: ThemeColor, hairline: ThemeColor) {
@@ -213,7 +222,7 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
     // MARK: UIPencilInteractionDelegate
 
     func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
-        let action = PencilTapAction(UIPencilInteraction.preferredTapAction)
+        let action = settings.pencilDoubleTap.action(system: PencilTapAction(UIPencilInteraction.preferredTapAction))
         model.pencilTapped(action)
         TouchRecorder.event("pencilTap", ["action": "\(action)", "tool": "\(model.tool.kind)"])
     }

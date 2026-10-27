@@ -10,9 +10,12 @@ struct EditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.theme) private var theme
+    @Environment(SettingsStore.self) private var settings
 
-    init(notebook: Notebook, library: LibraryModel, shelfName: String?) {
-        _model = State(initialValue: EditorModel(notebook: notebook, library: library, store: library.store))
+    init(notebook: Notebook, library: LibraryModel, shelfName: String?, opensAtLastPage: Bool) {
+        _model = State(
+            initialValue: EditorModel(
+                notebook: notebook, library: library, store: library.store, opensAtLastPage: opensAtLastPage))
         self.shelfName = shelfName
     }
 
@@ -23,7 +26,7 @@ struct EditorView: View {
                 if model.isLoaded {
                     NotebookCanvasView(
                         model: model, controller: controller, gutterColor: theme.colors.canvas,
-                        hairlineColor: theme.colors.hairline)
+                        hairlineColor: theme.colors.hairline, settings: settings.settings)
                 }
                 EditorToolRail(tool: $model.tool).padding(14)
             }

@@ -105,4 +105,31 @@ struct EditorModelTests {
         let page = editor.notebook.pages[3].id
         #expect(try await store.pageData(page: page, in: editor.notebook.id) != nil)
     }
+
+    // MARK: Last page viewed
+
+    @Test func reopensAtTheLastPageViewed() async throws {
+        let (library, editor) = try await openEditor()
+        let edited = editor.notebook.modifiedAt
+        editor.currentPage = 2
+        await editor.saveNow()
+
+        let notebook = try #require(library.notebooks.first { $0.id == editor.notebook.id })
+        // Looking at a page isn't an edit: the notebook keeps its place in Recent.
+        #expect(notebook.modifiedAt == edited)
+        let reopened = EditorModel(notebook: notebook, library: library, store: store)
+        await reopened.load()
+        #expect(reopened.currentPage == 2)
+    }
+
+    @Test func opensAtTheFirstPageWhenThatSettingIsOff() async throws {
+        let (library, editor) = try await openEditor()
+        editor.currentPage = 2
+        await editor.saveNow()
+
+        let notebook = try #require(library.notebooks.first { $0.id == editor.notebook.id })
+        let reopened = EditorModel(notebook: notebook, library: library, store: store, opensAtLastPage: false)
+        await reopened.load()
+        #expect(reopened.currentPage == 0)
+    }
 }

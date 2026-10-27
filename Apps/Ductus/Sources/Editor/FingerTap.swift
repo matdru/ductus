@@ -31,6 +31,12 @@ final class FingerTap: NSObject, UIGestureRecognizerDelegate {
         own = [twoFingers, threeFingers]
     }
 
+    /// Turns each tap on or off, following Settings.
+    func setEnabled(undo: Bool, redo: Bool) {
+        own.first?.isEnabled = undo
+        own.last?.isEnabled = redo
+    }
+
     @objc private func tappedWithTwoFingers() { undo() }
     @objc private func tappedWithThreeFingers() { redo() }
 

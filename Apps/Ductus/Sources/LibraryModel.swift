@@ -30,6 +30,8 @@ final class LibraryModel {
     private(set) var isLoaded = false
     var section: LibrarySection = .all
     var searchText = ""
+    /// How sections list their notebooks; Recent is always most recently edited first.
+    var sort = AppSettings.NotebookSort.lastEdited
 
     let store: NotebookStore
 
@@ -47,7 +49,7 @@ final class LibraryModel {
 
     // MARK: Reading
 
-    /// The current section, filtered by search, most recently edited first.
+    /// The current section, filtered by search, in the chosen order.
     var visibleNotebooks: [Notebook] {
         let query = searchText.trimmingCharacters(in: .whitespaces)
         let matching = notebooks(in: section).filter { query.isEmpty || $0.title.localizedStandardContains(query) }
@@ -55,10 +57,12 @@ final class LibraryModel {
     }
 
     func notebooks(in section: LibrarySection) -> [Notebook] {
-        let sorted = notebooks.sorted { $0.modifiedAt > $1.modifiedAt }
+        if section == .recent {
+            return Array(notebooks.sorted { $0.modifiedAt > $1.modifiedAt }.prefix(Self.recentLimit))
+        }
+        let sorted = notebooks.sorted(by: sort.areInIncreasingOrder)
         switch section {
-        case .all: return sorted
-        case .recent: return Array(sorted.prefix(Self.recentLimit))
+        case .all, .recent: return sorted
         case .pinned: return sorted.filter(\.isPinned)
         case .shelf(let id): return sorted.filter { $0.shelfID == id }
         }
@@ -153,6 +157,16 @@ final class LibraryModel {
         }
     }
 
+    /// Remembers the page the notebook was left open at. Looking isn't editing, so the modified date stays.
+    func setLastViewedPage(_ page: UUID, in id: UUID) async throws {
+        guard let index = notebooks.firstIndex(where: { $0.id == id }) else { throw LibraryError.notFound }
+        guard notebooks[index].lastViewedPageID != page else { return }
+        var notebook = notebooks[index]
+        notebook.lastViewedPageID = page
+        try await store.save(notebook)
+        notebooks[index] = notebook
+    }
+
     func delete(_ id: UUID) async throws {
         try await store.delete(notebook: id)
         notebooks.removeAll { $0.id == id }
@@ -187,6 +201,16 @@ final class LibraryModel {
         notebook.touch()
         try await store.save(notebook)
         notebooks[index] = notebook
+    }
+}
+
+extension AppSettings.NotebookSort {
+    func areInIncreasingOrder(_ a: Notebook, _ b: Notebook) -> Bool {
+        switch self {
+        case .lastEdited: a.modifiedAt > b.modifiedAt
+        case .created: a.createdAt > b.createdAt
+        case .title: a.title.localizedStandardCompare(b.title) == .orderedAscending
+        }
     }
 }
 

@@ -27,7 +27,8 @@ struct LibraryContent: View {
                     emptySection
                 } else {
                     if model.section == .all && model.searchText.isEmpty {
-                        recentCards(Array(notebooks.prefix(3)))
+                        // Cards are where you left off, whatever order the list below is in.
+                        recentCards(Array(model.notebooks(in: .recent).prefix(3)))
                     }
                     NotebookTable(notebooks: notebooks, model: model, open: open) { menu(for: $0) }
                 }

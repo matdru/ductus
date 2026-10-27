@@ -70,6 +70,15 @@ struct UndoTests {
         #expect(!FingerTap.isFinger(majorRadius: 52.1))
     }
 
+    @Test func eachTapCanBeTurnedOff() {
+        let view = UIView()
+        let fingerTap = FingerTap(on: view, undo: {}, redo: {})
+        fingerTap.setEnabled(undo: false, redo: true)
+        let taps = view.gestureRecognizers?.compactMap { $0 as? UITapGestureRecognizer } ?? []
+        #expect(taps.first { $0.numberOfTouchesRequired == 2 }?.isEnabled == false)
+        #expect(taps.first { $0.numberOfTouchesRequired == 3 }?.isEnabled == true)
+    }
+
     @Test func otherTapsWaitForTheFingerTaps() {
         let view = UIView()
         let fingerTap = FingerTap(on: view, undo: {}, redo: {})
