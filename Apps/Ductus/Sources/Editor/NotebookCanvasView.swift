@@ -17,8 +17,7 @@ final class CanvasController {
     func scroll(toPage index: Int) { scrollToPageHandler?(index) }
 }
 
-/// The notebook's single tall PencilKit canvas. Fingers scroll and pinch-zoom (fit-to-width up to 4×); the Pencil
-/// writes. Paper is drawn underneath by a tiled layer, redrawn sharp at every zoom.
+/// The notebook's single tall PencilKit canvas. Fingers scroll and pinch-zoom (see `ZoomRange`); the Pencil writes. Paper is drawn underneath by a tiled layer, redrawn sharp at every zoom.
 struct NotebookCanvasView: UIViewRepresentable {
     let model: EditorModel
     let controller: CanvasController
@@ -42,8 +41,6 @@ struct NotebookCanvasView: UIViewRepresentable {
 /// Owns the PKCanvasView and its paper underlay, and keeps zoom, content size and page tracking in step.
 @MainActor
 final class NotebookCanvas: NSObject, PKCanvasViewDelegate {
-    static let maximumZoomFactor = 4.0
-
     let canvas = LayoutReportingCanvasView()
     private let underlay = PaperUnderlayView()
     private let model: EditorModel
@@ -51,7 +48,7 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate {
     private var layout: PageLayout
     private var appliedRevision = -1
     private var isApplyingModel = false
-    private var fitZoom = 0.0
+    private var zoom: ZoomRange?
 
     init(model: EditorModel, controller: CanvasController) {
         self.model = model
@@ -99,33 +96,44 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate {
     }
 
     private func layoutChanged() {
-        let width = canvas.bounds.width
-        guard width > 0 else { return }
-        let newFit = width / layout.contentSize.width
-        guard abs(newFit - fitZoom) > 0.0001 else { return }
-        let relative = fitZoom > 0 ? canvas.zoomScale / fitZoom : 1
-        let firstLayout = fitZoom == 0
-        fitZoom = newFit
-        canvas.minimumZoomScale = newFit
-        canvas.maximumZoomScale = newFit * Self.maximumZoomFactor
-        canvas.zoomScale = newFit * relative
+        guard canvas.bounds.width > 0, canvas.bounds.height > 0 else { return }
+        let newZoom = ZoomRange(viewSize: canvas.bounds.size, layout: layout)
+        guard newZoom != zoom else {
+            centreContent()
+            return
+        }
+        let relative = zoom.map { canvas.zoomScale / $0.fit } ?? 1
+        let firstLayout = zoom == nil
+        zoom = newZoom
+        canvas.minimumZoomScale = newZoom.minimum
+        canvas.maximumZoomScale = newZoom.maximum
+        canvas.zoomScale = min(max(newZoom.fit * relative, newZoom.minimum), newZoom.maximum)
         updateContentSize()
         if firstLayout { scroll(toPage: model.currentPage, animated: false) }
     }
 
     private func updateContentSize() {
-        let zoom = canvas.zoomScale
-        let size = CGSize(width: layout.contentSize.width * zoom, height: layout.contentSize.height * zoom)
+        let scale = canvas.zoomScale
+        let size = CGSize(width: layout.contentSize.width * scale, height: layout.contentSize.height * scale)
         canvas.contentSize = size
         underlay.frame = CGRect(origin: .zero, size: size)
-        underlay.setZoom(zoom)
-        controller.zoomPercent = Int((zoom / max(fitZoom, 0.0001) * 100).rounded())
+        underlay.setZoom(scale)
+        controller.zoomPercent = Int((scale / max(zoom?.fit ?? 1, 0.0001) * 100).rounded())
+        centreContent()
+    }
+
+    /// Zoomed out past the page width, the page sits in the middle of the screen, not against its left edge.
+    private func centreContent() {
+        let insets = ZoomRange.centringInsets(content: canvas.contentSize, bounds: canvas.bounds.size)
+        if insets != canvas.contentInset { canvas.contentInset = insets }
     }
 
     private func scroll(toPage index: Int, animated: Bool) {
         let top = (layout.pageRect(index).minY - PageLayout.gutter / 2) * canvas.zoomScale
-        let maxOffset = max(canvas.contentSize.height - canvas.bounds.height, 0)
-        canvas.setContentOffset(CGPoint(x: canvas.contentOffset.x, y: min(max(top, 0), maxOffset)), animated: animated)
+        let minOffset = -canvas.contentInset.top
+        let maxOffset = max(canvas.contentSize.height - canvas.bounds.height + canvas.contentInset.bottom, minOffset)
+        canvas.setContentOffset(
+            CGPoint(x: canvas.contentOffset.x, y: min(max(top, minOffset), maxOffset)), animated: animated)
     }
 
     // MARK: PKCanvasViewDelegate
