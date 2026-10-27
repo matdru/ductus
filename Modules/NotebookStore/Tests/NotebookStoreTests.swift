@@ -115,4 +115,31 @@ struct NotebookStoreTests {
         #expect(await store.loadLibrary().notebooks.isEmpty)
         #expect(!FileManager.default.fileExists(atPath: package(notebook.id).path))
     }
+
+    @Test func shelvesRoundTripAndStartEmpty() async throws {
+        #expect(try await store.loadShelves().isEmpty)
+        let shelves = [Shelf(name: "Work", colorName: "ink")]
+        try await store.saveShelves(shelves)
+        #expect(try await store.loadShelves() == shelves)
+    }
+
+    @Test func libraryFileIsNotMistakenForANotebook() async throws {
+        try await store.saveShelves([Shelf(name: "Work", colorName: "ink")])
+        let library = await store.loadLibrary()
+        #expect(library.notebooks.isEmpty && library.unreadable.isEmpty)
+    }
+
+    @Test func copyPageDataCopiesInkBetweenNotebooks() async throws {
+        let source = notebook("Source")
+        let (copy, pageMap) = source.duplicated()
+        try await store.save(source)
+        try await store.save(copy)
+        let page = source.pages[0].id
+        try await store.savePage(Data([9, 9]), page: page, in: source.id)
+        let target = try #require(pageMap[page])
+        try await store.copyPageData(page: page, from: source.id, to: target, in: copy.id)
+        #expect(try await store.pageData(page: target, in: copy.id) == Data([9, 9]))
+        // A blank page has nothing to copy, and that's fine.
+        try await store.copyPageData(page: UUID(), from: source.id, to: UUID(), in: copy.id)
+    }
 }

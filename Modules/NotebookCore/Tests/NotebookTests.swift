@@ -98,4 +98,10 @@ struct NotebookTests {
         page.paperOverride = Paper(type: .squared, color: .white)
         #expect(notebook.paper(for: page) == Paper(type: .squared, color: .white))
     }
+
+    @Test func touchBumpsModifiedDate() {
+        var notebook = notebook()
+        notebook.touch(later)
+        #expect(notebook.modifiedAt == later)
+    }
 }

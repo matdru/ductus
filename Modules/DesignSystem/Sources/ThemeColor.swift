@@ -38,6 +38,9 @@ public struct RGBA: Sendable, Hashable {
     }
 
     var uiColor: UIColor { UIColor(red: red, green: green, blue: blue, alpha: alpha) }
+
+    /// For content colours that don't change with the theme, like paper. UI chrome uses `ThemeColor` tokens.
+    public var color: Color { Color(uiColor: uiColor) }
 }
 
 /// A theme colour: one value for light mode and one for dark. Resolves automatically with the system appearance,

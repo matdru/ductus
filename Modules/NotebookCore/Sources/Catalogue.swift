@@ -23,6 +23,18 @@ public enum PaperType: String, CatalogueValue {
 public enum PaperColor: String, CatalogueValue {
     case white, ivory, cream, canary, recycled, charcoal
     public static let fallback = PaperColor.ivory
+
+    /// The paper's colour as `0xRRGGBB`. Paper is content, not theme: it looks the same in every app theme.
+    public var hex: UInt32 {
+        switch self {
+        case .white: 0xFFFFFE
+        case .ivory: 0xFBF7EC
+        case .cream: 0xF5ECD6
+        case .canary: 0xFBF1A0
+        case .recycled: 0xECEAE4
+        case .charcoal: 0x2B2D31
+        }
+    }
 }
 
 public struct Paper: Sendable, Codable, Hashable {

@@ -26,6 +26,8 @@ public struct Notebook: Sendable, Codable, Hashable, Identifiable {
     public var size: PageSize
     public private(set) var pages: [Page]
     public var isPinned: Bool
+    /// The shelf this notebook sits on, if any.
+    public var shelfID: UUID?
     public var lastViewedPageID: UUID?
     public var createdAt: Date
     public private(set) var modifiedAt: Date
@@ -41,6 +43,7 @@ public struct Notebook: Sendable, Codable, Hashable, Identifiable {
         self.size = size
         pages = [Page(createdAt: createdAt)]
         isPinned = false
+        shelfID = nil
         lastViewedPageID = nil
         self.createdAt = createdAt
         modifiedAt = createdAt
@@ -90,6 +93,21 @@ public struct Notebook: Sendable, Codable, Hashable, Identifiable {
         modifiedAt = now
     }
 
+    /// A copy with fresh notebook and page ids, unpinned, titled "… copy". `pageMap` maps each original page id to
+    /// its copy's, so the caller can copy the ink files.
+    public func duplicated(now: Date = Date()) -> (notebook: Notebook, pageMap: [UUID: UUID]) {
+        var copy = Notebook(title: "\(title) copy", cover: cover, paper: paper, size: size, createdAt: now)
+        copy.shelfID = shelfID
+        copy.pages = pages.map { Page(paperOverride: $0.paperOverride, createdAt: now) }
+        let pageMap = Dictionary(uniqueKeysWithValues: zip(pages.map(\.id), copy.pages.map(\.id)))
+        return (copy, pageMap)
+    }
+
+    /// Records a change to the notebook's own details (title, look, shelf, pin).
+    public mutating func touch(_ date: Date = Date()) {
+        modifiedAt = date
+    }
+
     /// Records that a page's ink changed.
     public mutating func markPageEdited(_ id: UUID, at date: Date = Date()) {
         guard let index = pages.firstIndex(where: { $0.id == id }) else { return }
@@ -100,7 +118,7 @@ public struct Notebook: Sendable, Codable, Hashable, Identifiable {
 
 extension Notebook {
     private enum CodingKeys: String, CodingKey {
-        case id, title, cover, paper, size, pages, isPinned, lastViewedPageID, createdAt, modifiedAt
+        case id, title, cover, paper, size, pages, isPinned, shelfID, lastViewedPageID, createdAt, modifiedAt
     }
 
     /// Only `id` is required; anything else missing takes its default, so manifests from older versions load.
@@ -118,6 +136,7 @@ extension Notebook {
             self.pages = pages
         }
         isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        shelfID = try container.decodeIfPresent(UUID.self, forKey: .shelfID)
         lastViewedPageID = try container.decodeIfPresent(UUID.self, forKey: .lastViewedPageID)
         modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
     }

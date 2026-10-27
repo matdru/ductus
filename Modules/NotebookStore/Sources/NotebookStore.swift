@@ -3,6 +3,7 @@ import NotebookCore
 
 /// Notebooks on disk, one package per notebook and one file per page:
 ///
+///     <root>/library.json            LibraryManifest (shelves)
 ///     <root>/<notebook-id>.ductus/
 ///       manifest.json             NotebookManifest
 ///       pages/<page-id>.drawing   opaque page ink (the app stores PKDrawing.dataRepresentation())
@@ -22,6 +23,7 @@ public actor NotebookStore {
     static let manifestName = "manifest.json"
     static let pagesDirectory = "pages"
     static let pageExtension = "drawing"
+    static let libraryName = "library.json"
 
     private let root: URL
     private let files = FileManager.default
@@ -64,6 +66,24 @@ public actor NotebookStore {
         let url = pageURL(page, in: notebook)
         guard files.fileExists(atPath: url.path) else { return nil }
         return try Data(contentsOf: url)
+    }
+
+    /// Copies a page's ink to another page, e.g. when duplicating a notebook. A blank page has nothing to copy.
+    public func copyPageData(page: UUID, from source: UUID, to target: UUID, in destination: UUID) throws {
+        guard let data = try pageData(page: page, in: source) else { return }
+        try savePage(data, page: target, in: destination)
+    }
+
+    /// The library's shelves; none until some are saved.
+    public func loadShelves() throws -> [Shelf] {
+        let url = root.appending(path: Self.libraryName)
+        guard files.fileExists(atPath: url.path) else { return [] }
+        return try LibraryManifest.decode(Data(contentsOf: url))
+    }
+
+    public func saveShelves(_ shelves: [Shelf]) throws {
+        try files.createDirectory(at: root, withIntermediateDirectories: true)
+        try LibraryManifest.encode(shelves).write(to: root.appending(path: Self.libraryName), options: .atomic)
     }
 
     public func deletePageData(page: UUID, in notebook: UUID) throws {

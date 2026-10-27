@@ -67,9 +67,12 @@ The look is data, so re-skinning never touches screens:
 | `Page` | id, optional paper override, dates. Its ink is a separate file |
 | `Paper` / `Cover` / `PageSize` | Catalogue values. Unknown values from a newer app decode as a fallback (`CatalogueValue`) |
 | `NotebookManifest` | `manifest.json`: `{schemaVersion, notebook}`. Missing fields take defaults; a newer `schemaVersion` is refused so saving can't drop fields we don't know. Dates are seconds since 2001 (exact round trips) |
-| `NotebookStore` | Actor. `loadLibrary()` reads manifests only; `save`, `savePage`, `pageData`, `deletePageData`, `delete(notebook:)` |
+| `Shelf` / `LibraryManifest` | Library-level data in `library.json`: the shelves. A notebook has at most one `shelfID` |
+| `NotebookStore` | Actor. `loadLibrary()` reads manifests only; `save`, `savePage`, `pageData`, `copyPageData`, `deletePageData`, `delete(notebook:)`, `loadShelves`, `saveShelves` |
+| `LibraryModel` (app) | `@Observable` library state and every change to it (create, rename, colour, paper, pin, move, duplicate, delete, shelves); saves before updating memory |
 
 ```
+<root>/library.json           shelves
 <root>/<notebook-id>.ductus/
   manifest.json
   pages/<page-id>.drawing     PKDrawing.dataRepresentation(); no file = blank page

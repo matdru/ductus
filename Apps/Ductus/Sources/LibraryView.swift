@@ -1,64 +1,152 @@
 import DesignSystem
+import NotebookCore
 import SwiftUI
 
-/// The shelf of notebooks. Empty until notebooks and storage land (DRU-16, DRU-17, DRU-39).
+/// The library: shelves in a sidebar, notebooks in the detail column (Graphite design, DRU-39).
 struct LibraryView: View {
+    @Bindable var model: LibraryModel
     @Binding var themeID: String
-    @State private var showsScratchPage = false
     @Environment(\.theme) private var theme
+    @State private var showsNewNotebook = false
+    @State private var showsNewShelf = false
+    @State private var newShelfName = ""
+    @State private var openNotebook: Notebook?
+    @State private var errorMessage: String?
 
     var body: some View {
-        NavigationStack {
-            ContentUnavailableView {
-                Label {
-                    Text("Your shelf is empty").style(theme.typography.title)
-                        .foregroundStyle(theme.colors.textPrimary)
-                } icon: {
-                    Image(systemName: "books.vertical").foregroundStyle(theme.colors.textSecondary)
-                }
-            } description: {
-                Text("Notebooks you create will live here.").style(theme.typography.body)
-                    .foregroundStyle(theme.colors.textSecondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.colors.canvas)
-            .navigationTitle("Notebooks")
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    // Temporary until the Settings page (DRU-45).
-                    Picker("Theme", systemImage: "paintpalette", selection: $themeID) {
-                        ForEach(Theme.all) { Text($0.name).tag($0.id) }
+        NavigationSplitView {
+            LibrarySidebar(model: model, showsNewShelf: $showsNewShelf)
+        } detail: {
+            NavigationStack {
+                Group {
+                    if model.isLoaded && model.notebooks.isEmpty {
+                        FirstLaunchView { draft in perform { openNotebook = try await model.create(draft) } }
+                    } else {
+                        LibraryContent(model: model, showsNewNotebook: $showsNewNotebook, open: open, perform: perform)
                     }
-                    .pickerStyle(.menu)
-                    // Temporary way to write in Ductus until the page editor exists (DRU-35).
-                    Button("Scratch Page", systemImage: "scribble") { showsScratchPage = true }
                 }
-            }
-            .fullScreenCover(isPresented: $showsScratchPage) {
-                ScratchPageView()
+                .background(theme.colors.canvas)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        // Temporary until the Settings page (DRU-45).
+                        Picker("Theme", systemImage: "paintpalette", selection: $themeID) {
+                            ForEach(Theme.all) { Text($0.name).tag($0.id) }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                }
             }
         }
         .tint(theme.colors.accent)
+        .sheet(isPresented: $showsNewNotebook) {
+            NewNotebookSheet(shelves: model.shelves, initialShelf: currentShelf) { draft in
+                showsNewNotebook = false
+                perform { openNotebook = try await model.create(draft) }
+            }
+        }
+        .fullScreenCover(item: $openNotebook) { notebook in
+            OpenNotebookView(notebook: notebook)
+        }
+        .alert("New shelf", isPresented: $showsNewShelf) {
+            TextField("Name", text: $newShelfName)
+            Button("Create") {
+                let name = newShelfName
+                newShelfName = ""
+                perform { try await model.createShelf(name: name, colorName: nextShelfColor) }
+            }
+            Button("Cancel", role: .cancel) { newShelfName = "" }
+        }
+        .alert(
+            "Something went wrong", isPresented: .init(get: { errorMessage != nil }, set: { _ in errorMessage = nil })
+        ) {
+        } message: {
+            Text(errorMessage ?? "")
+        }
+        .task { await model.load() }
+    }
+
+    private var currentShelf: UUID? {
+        if case .shelf(let id) = model.section { id } else { nil }
+    }
+
+    /// Cycles through the palette so new shelves are told apart at a glance.
+    private var nextShelfColor: String {
+        let palette = NotebookColor.allCases
+        return palette[model.shelves.count % palette.count].rawValue
+    }
+
+    private func open(_ notebook: Notebook) {
+        openNotebook = notebook
+    }
+
+    /// Runs a library change and reports a failure instead of losing it silently.
+    private func perform(_ action: @escaping @MainActor () async throws -> Void) {
+        Task {
+            do { try await action() } catch { errorMessage = error.localizedDescription }
+        }
     }
 }
 
-/// A single unsaved PencilKit page.
-private struct ScratchPageView: View {
-    @Environment(\.dismiss) private var dismiss
+/// All notebooks, Recent, Pinned and the shelves, with counts.
+private struct LibrarySidebar: View {
+    @Bindable var model: LibraryModel
+    @Binding var showsNewShelf: Bool
     @Environment(\.theme) private var theme
 
     var body: some View {
-        NavigationStack {
-            CanvasView()
-                .ignoresSafeArea(edges: .bottom)
-                .navigationTitle("Scratch Page")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Done") { dismiss() }
+        List {
+            Section {
+                row("All notebooks", section: .all) { Image(systemName: "books.vertical") }
+                row("Recent", section: .recent) { Image(systemName: "clock") }
+                row("Pinned", section: .pinned) { Image(systemName: "pin") }
+            }
+            Section("Shelves") {
+                ForEach(model.shelves) { shelf in
+                    row(shelf.name, section: .shelf(shelf.id)) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(theme.colors.notebook(NotebookColor(rawValue: shelf.colorName) ?? .graphite))
+                            .frame(width: 10, height: 10)
+                    }
+                    .contextMenu {
+                        Button("Delete shelf", systemImage: "trash", role: .destructive) {
+                            Task { try? await model.deleteShelf(shelf.id) }
+                        }
                     }
                 }
+                Button("New shelf", systemImage: "plus") { showsNewShelf = true }
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .listRowBackground(Color.clear)
+            }
         }
-        .tint(theme.colors.accent)
+        .scrollContentBackground(.hidden)
+        .background(theme.colors.sidebar)
+        .navigationTitle("Ductus")
+    }
+
+    /// Graphite's quiet selection: a raised row, not an accent fill.
+    private func row<Icon: View>(_ title: String, section: LibrarySection, @ViewBuilder icon: () -> Icon) -> some View {
+        let isSelected = model.section == section
+        return Button {
+            model.section = section
+        } label: {
+            Label {
+                HStack {
+                    Text(title).foregroundStyle(theme.colors.textPrimary)
+                    Spacer()
+                    Text("\(model.count(in: section))").style(theme.typography.mono)
+                        .foregroundStyle(theme.colors.textSecondary)
+                }
+            } icon: {
+                icon().foregroundStyle(isSelected ? theme.colors.accent : theme.colors.textSecondary)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .fontWeight(isSelected ? .semibold : .regular)
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: theme.metrics.radiusSmall)
+                .fill(isSelected ? theme.colors.elevated : theme.colors.sidebar)
+                .padding(.horizontal, 10))
     }
 }
