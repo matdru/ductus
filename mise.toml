@@ -40,3 +40,19 @@ xcrun devicectl device install app --device "$DUCTUS_DEVICE" "$bundle"
 xcrun devicectl device process launch --device "$DUCTUS_DEVICE" \
   "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist")"
 """
+
+[tasks.pull-logs]
+description = "Copy Ductus touch recordings (DevLogs) from the connected iPad to .build/devlogs"
+run = """
+set -euo pipefail
+: "${DUCTUS_DEVICE:?set DUCTUS_DEVICE in mise.local.toml}"
+mkdir -p .build/devlogs
+files=$(xcrun devicectl device info files --device "$DUCTUS_DEVICE" --domain-type appDataContainer \
+  --domain-identifier app.ductus --subdirectory Documents/DevLogs 2>/dev/null | grep -oE '^touches-[^ ]+[.]jsonl' || true)
+[ -n "$files" ] || { echo "No recordings on the iPad yet (tap REC in the editor's status bar)."; exit 0; }
+for f in $files; do
+  [ -f ".build/devlogs/$f" ] || xcrun devicectl device copy from --device "$DUCTUS_DEVICE" --domain-type appDataContainer \
+    --domain-identifier app.ductus --source "Documents/DevLogs/$f" --destination ".build/devlogs/$f" > /dev/null
+done
+ls -1t .build/devlogs | head -5
+"""

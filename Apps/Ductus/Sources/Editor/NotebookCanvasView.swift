@@ -13,8 +13,8 @@ final class CanvasController {
     fileprivate(set) var canRedo = false
     fileprivate weak var canvas: NotebookCanvas?
 
-    func undo() { canvas?.undo() }
-    func redo() { canvas?.redo() }
+    func undo() { canvas?.undo(source: "button") }
+    func redo() { canvas?.redo(source: "button") }
     func scroll(toPage index: Int) { canvas?.scroll(toPage: index, animated: true) }
 }
 
@@ -74,7 +74,9 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
         controller.canvas = self
         canvas.onLayout = { [weak self] in self?.layoutChanged() }
         canvas.addInteraction(UIPencilInteraction(delegate: self))
-        fingerTap = FingerTap(on: canvas, undo: { [weak self] in self?.undo() }, redo: { [weak self] in self?.redo() })
+        fingerTap = FingerTap(
+            on: canvas, undo: { [weak self] in self?.undo(source: "twoFingerTap") },
+            redo: { [weak self] in self?.redo(source: "threeFingerTap") })
         for name in [
             NSNotification.Name.NSUndoManagerDidCloseUndoGroup, .NSUndoManagerDidUndoChange,
             .NSUndoManagerDidRedoChange,
@@ -87,14 +89,24 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
     // MARK: Undo
 
     /// Undoes the last change; if it was off screen, scrolls there so it's never a surprise on an unseen page.
-    func undo() { reveal { $0.undo() } }
-    func redo() { reveal { $0.redo() } }
+    func undo(source: String) { reveal("undo", source: source) { $0.undo() } }
+    func redo(source: String) { reveal("redo", source: source) { $0.redo() } }
 
-    private func reveal(_ step: (UndoManager) -> Void) {
+    private func reveal(_ name: String, source: String, _ step: (UndoManager) -> Void) {
         guard let undoManager = canvas.undoManager else { return }
         let before = canvas.drawing
+        let available = name == "undo" ? undoManager.canUndo : undoManager.canRedo
+        let action = name == "undo" ? undoManager.undoActionName : undoManager.redoActionName
         step(undoManager)
-        guard let change = DrawingChange.bounds(from: before, to: canvas.drawing) else { return }
+        let change = DrawingChange.bounds(from: before, to: canvas.drawing)
+        TouchRecorder.event(
+            name,
+            [
+                "source": source, "available": String(available), "action": action,
+                "changed": change.map { "\(Int($0.minX)),\(Int($0.minY)) \(Int($0.width))×\(Int($0.height))" }
+                    ?? "none",
+            ])
+        guard let change else { return }
         let zoom = canvas.zoomScale
         let visible = CGRect(
             x: canvas.contentOffset.x / zoom, y: canvas.contentOffset.y / zoom, width: canvas.bounds.width / zoom,
@@ -183,13 +195,16 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
 
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
         guard !isApplyingModel else { return }
+        TouchRecorder.event("drawingChanged", ["strokes": String(canvasView.drawing.strokes.count)])
         model.drawingChanged(canvasView.drawing)
     }
 
     // MARK: UIPencilInteractionDelegate
 
     func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
-        model.pencilTapped(PencilTapAction(UIPencilInteraction.preferredTapAction))
+        let action = PencilTapAction(UIPencilInteraction.preferredTapAction)
+        model.pencilTapped(action)
+        TouchRecorder.event("pencilTap", ["action": "\(action)", "tool": "\(model.tool.kind)"])
     }
 
     // MARK: UIScrollViewDelegate

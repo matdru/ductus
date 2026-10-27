@@ -30,6 +30,9 @@ struct EditorView: View {
             statusBar
         }
         .background(theme.colors.canvas)
+        #if DEBUG
+            .background(TouchRecorderInstaller())
+        #endif
         .tint(theme.colors.accent)
         .task { await model.load() }
         .onChange(of: scenePhase) { _, phase in
@@ -74,6 +77,9 @@ struct EditorView: View {
 
     private var statusBar: some View {
         HStack(spacing: 18) {
+            #if DEBUG
+                TouchRecorderButton()
+            #endif
             HStack(spacing: 6) {
                 Circle().fill(saveColor).frame(width: 6, height: 6)
                 Text(saveLabel)

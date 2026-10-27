@@ -29,6 +29,7 @@ final class EditorModel {
     var tool = EditorTool.default {
         didSet {
             if tool.kind != oldValue.kind { previousToolKind = oldValue.kind }
+            if tool != oldValue { TouchRecorder.event("tool", ["kind": "\(tool.kind)", "color": tool.color.rawValue]) }
         }
     }
     /// The tool used before the current one, for the Pencil's double-tap.
