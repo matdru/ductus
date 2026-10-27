@@ -29,6 +29,7 @@ Modules/
   InkPencilKit/  PencilKit engine + Stroke ⇄ PKStroke conversion
   NotebookCore/  pure Swift: Notebook, Page, paper/cover catalogue, manifest format
   NotebookStore/ notebooks on disk: one package per notebook, one file per page
+  DesignSystem/  swappable themes: semantic colour, type and metric tokens
 docs/
 ```
 
@@ -44,6 +45,19 @@ Apps ──► InkMetal ─────┐
 
 - Arrows only point toward `InkCore`. Modules never depend on apps, and engine modules never depend on each other.
 - `InkCore` imports only Foundation — no UIKit, SwiftUI, PencilKit or Metal — so it's testable anywhere and reusable for the Mac app and sync later.
+
+## Themes (DesignSystem)
+
+The look is data, so re-skinning never touches screens:
+
+- `Theme` holds semantic tokens: colours by role (`canvas`, `surface`, `elevated`, `sidebar`, `hairline`, `textPrimary`, `textSecondary`, `textTertiary`, `accent`, `onAccent`, `accentTint`, `danger`, plus the notebook palette), `Typography` styles and `Metrics`.
+- Every colour is a `ThemeColor` with a light and a dark value. It resolves with the system appearance in SwiftUI (it's a `ShapeStyle`) and in UIKit (`uiColor`).
+- The app injects the theme once at the root (`.environment(\.theme, Theme.named(id))`); views read `@Environment(\.theme)`. Switching themes means changing one id.
+- Shipped themes: `.graphite` (the chosen look, dark-first with a light mode) and `.studio`. A new skin is one more `Theme` value added to `Theme.all`.
+- Guard rails:
+  - SwiftLint's `no_raw_colors` rule fails the build on raw colours in `Apps/Ductus`.
+  - `ThemeTests` checks WCAG AA contrast (≥ 4.5) for every text/background pairing in every theme, light and dark.
+- Paper and ink are content, not theme.
 
 ## Notebooks (NotebookCore, NotebookStore)
 
@@ -156,4 +170,5 @@ mise run format       # swift-format in place
 | 2026-10-26 | Planning moves to Linear (project Ductus); `docs/roadmap.md` mirrors its milestones |
 | 2026-10-26 | Minimum iPadOS 26; performance targets met on M2 with 3× headroom (no base iPad available) |
 | 2026-10-26 | Notebook storage: package per notebook, `PKDrawing` data per page, atomic writes; `NotebookCore` is Foundation-only |
+| 2026-10-27 | Visual language: Graphite. Look lives in `DesignSystem` themes (semantic tokens, light/dark per token); raw colours banned in the app by lint |
 | 2026-10-26 | Pro sync on CloudKit private database, no backend of our own (Linear doc "Backend & Cost Estimate") |

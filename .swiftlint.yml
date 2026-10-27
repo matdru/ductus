@@ -11,3 +11,10 @@ identifier_name:
 line_length:
   warning: 120
   ignores_comments: true
+custom_rules:
+  no_raw_colors:
+    name: "Raw colour"
+    included: ".*/Apps/Ductus/.*\\.swift"
+    regex: "\\b(Color|UIColor)\\s*(\\.\\s*(red|blue|green|black|white|gray|grey|orange|yellow|pink|purple|cyan|mint|teal|indigo|brown|accentColor)\\b|\\(\\s*(red|white|hue|hex|displayP3|\\.sRGB)\\b)|\\.(foregroundStyle|foregroundColor|tint|background|fill)\\(\\s*\\.(red|blue|green|black|white|gray|orange|yellow|pink|purple|cyan|mint|teal|indigo|brown)\\b"
+    message: "Use theme tokens from DesignSystem (theme.colors.…) instead of raw colours."
+    severity: error

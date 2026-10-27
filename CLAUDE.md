@@ -21,6 +21,7 @@ mise install && mise run generate   # produces Ductus.xcworkspace
 - New modules: `module("Name", dependencies: [...])` in `Project.swift`, with sources in `Modules/Name/Sources` and tests in `Modules/Name/Tests`.
 - `InkCore` and `NotebookCore` import only Foundation — never UIKit, SwiftUI, PencilKit or Metal.
 - Dependencies point toward `InkCore`. Modules never depend on apps; engine modules never depend on each other.
+- Ductus app views use theme tokens from `DesignSystem` (`@Environment(\.theme)`), never raw colours; the `no_raw_colors` lint rule enforces it.
 - Unit tests use Swift Testing (`import Testing`). Put logic in value types so it can be tested without a screen.
 - Swift 6 language mode with strict concurrency; UI and surfaces are `@MainActor`.
 
