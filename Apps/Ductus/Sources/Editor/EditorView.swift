@@ -55,9 +55,9 @@ struct EditorView: View {
             Text("/").foregroundStyle(theme.colors.textTertiary)
             Text("p. \(model.currentPage + 1)").style(theme.typography.mono).foregroundStyle(theme.colors.textPrimary)
             Spacer()
-            iconButton("Undo", "arrow.uturn.backward") { controller.undo() }
+            iconButton("Undo", "arrow.uturn.backward", isEnabled: controller.canUndo) { controller.undo() }
                 .keyboardShortcut("z")
-            iconButton("Redo", "arrow.uturn.forward") { controller.redo() }
+            iconButton("Redo", "arrow.uturn.forward", isEnabled: controller.canRedo) { controller.redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
             iconButton("Add page", "doc.badge.plus") {
                 Task {
@@ -108,15 +108,18 @@ struct EditorView: View {
         }
     }
 
-    private func iconButton(_ label: String, _ systemImage: String, action: @escaping () -> Void) -> some View {
+    private func iconButton(
+        _ label: String, _ systemImage: String, isEnabled: Bool = true, action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 16, weight: .medium))
                 .frame(width: 40, height: 40)
-                .foregroundStyle(theme.colors.textPrimary)
+                .foregroundStyle(isEnabled ? theme.colors.textPrimary : theme.colors.textTertiary)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
         .accessibilityLabel(label)
     }
 }

@@ -136,6 +136,15 @@ final class LibraryModel {
         return notebook
     }
 
+    /// Removes a page and its files, and returns the updated notebook.
+    @discardableResult
+    func deletePage(_ page: UUID, in id: UUID) async throws -> Notebook {
+        try await update(id) { _ = $0.deletePage(id: page) }
+        try await store.deletePageData(page: page, in: id)
+        guard let notebook = notebooks.first(where: { $0.id == id }) else { throw LibraryError.notFound }
+        return notebook
+    }
+
     /// Records that these pages' ink changed (the notebook's and each page's modified date).
     func markEdited(_ id: UUID, pages: [UUID]) async throws {
         let now = Date()

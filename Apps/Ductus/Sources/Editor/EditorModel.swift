@@ -34,6 +34,10 @@ final class EditorModel {
     /// The tool used before the current one, for the Pencil's double-tap.
     private(set) var previousToolKind = EditorTool.default.kind
     var currentPage = 0
+    /// The canvas's undo manager; ink undo is PencilKit's, page changes are registered here too.
+    weak var undoManager: UndoManager?
+    /// The page add or removal an undo or redo started, if it's still running.
+    private(set) var pendingPageChange: Task<Void, Never>?
 
     private let library: LibraryModel
     private let store: NotebookStore
@@ -139,8 +143,51 @@ final class EditorModel {
         tool.kind = tool.kind.afterPencilTap(action, previous: previousToolKind)
     }
 
-    /// Adds a blank page at the end of the notebook.
+    /// Adds a blank page at the end of the notebook. Undo removes it again while it's still blank.
     func appendPage() async throws {
+        try await addPage()
+        undoManager?.registerUndo(withTarget: self) { $0.undoAddPage() }
+        undoManager?.setActionName("Add Page")
+    }
+
+    /// Undo of adding a page: removes the last page, but only while it's blank, so undo never loses ink.
+    /// The inverse is registered straight away (undo managers need it during the undo), the files change after.
+    private func undoAddPage() {
+        guard notebook.pages.count > 1, let last = notebook.pages.last,
+            layout.split(drawing).last?.strokes.isEmpty == true
+        else { return }
+        undoManager?.registerUndo(withTarget: self) { $0.redoAddPage() }
+        undoManager?.setActionName("Add Page")
+        changePages { model in try await model.removePage(last.id) }
+    }
+
+    private func redoAddPage() {
+        undoManager?.registerUndo(withTarget: self) { $0.undoAddPage() }
+        undoManager?.setActionName("Add Page")
+        changePages { model in try await model.addPage() }
+    }
+
+    /// Runs page changes one after another, so a quick undo and redo can't interleave.
+    private func changePages(_ change: @escaping @MainActor (EditorModel) async throws -> Void) {
+        let previous = pendingPageChange
+        pendingPageChange = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            try? await change(self)
+        }
+    }
+
+    private func removePage(_ id: UUID) async throws {
+        await saveNow()
+        notebook = try await library.deletePage(id, in: notebook.id)
+        let pages = Array(layout.split(drawing).prefix(notebook.pages.count))
+        layout = PageLayout(size: notebook.size, pageCount: notebook.pages.count)
+        drawing = layout.combine(pages)
+        currentPage = min(currentPage, notebook.pages.count - 1)
+        revision += 1
+    }
+
+    private func addPage() async throws {
         await saveNow()
         notebook = try await library.appendPage(notebook.id)
         let pages = layout.split(drawing)

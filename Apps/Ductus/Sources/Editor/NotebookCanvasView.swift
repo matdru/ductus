@@ -9,12 +9,13 @@ import UIKit
 @MainActor @Observable
 final class CanvasController {
     fileprivate(set) var zoomPercent = 100
-    fileprivate weak var canvas: PKCanvasView?
-    fileprivate var scrollToPageHandler: ((Int) -> Void)?
+    fileprivate(set) var canUndo = false
+    fileprivate(set) var canRedo = false
+    fileprivate weak var canvas: NotebookCanvas?
 
-    func undo() { canvas?.undoManager?.undo() }
-    func redo() { canvas?.undoManager?.redo() }
-    func scroll(toPage index: Int) { scrollToPageHandler?(index) }
+    func undo() { canvas?.undo() }
+    func redo() { canvas?.redo() }
+    func scroll(toPage index: Int) { canvas?.scroll(toPage: index, animated: true) }
 }
 
 /// The notebook's single tall PencilKit canvas. Fingers scroll and pinch-zoom (see `ZoomRange`); the Pencil writes. Paper is drawn underneath by a tiled layer, redrawn sharp at every zoom.
@@ -49,6 +50,7 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
     private var appliedRevision = -1
     private var isApplyingModel = false
     private var zoom: ZoomRange?
+    private var fingerTap: FingerTap?
 
     init(model: EditorModel, controller: CanvasController) {
         self.model = model
@@ -69,10 +71,50 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
         #endif
         canvas.insertSubview(underlay, at: 0)
         underlay.configure(notebook: model.notebook, layout: layout)
-        controller.canvas = canvas
-        controller.scrollToPageHandler = { [weak self] index in self?.scroll(toPage: index, animated: true) }
+        controller.canvas = self
         canvas.onLayout = { [weak self] in self?.layoutChanged() }
         canvas.addInteraction(UIPencilInteraction(delegate: self))
+        fingerTap = FingerTap(on: canvas, undo: { [weak self] in self?.undo() }, redo: { [weak self] in self?.redo() })
+        for name in [
+            NSNotification.Name.NSUndoManagerDidCloseUndoGroup, .NSUndoManagerDidUndoChange,
+            .NSUndoManagerDidRedoChange,
+            .NSUndoManagerCheckpoint,
+        ] {
+            NotificationCenter.default.addObserver(self, selector: #selector(undoStateChanged), name: name, object: nil)
+        }
+    }
+
+    // MARK: Undo
+
+    /// Undoes the last change; if it was off screen, scrolls there so it's never a surprise on an unseen page.
+    func undo() { reveal { $0.undo() } }
+    func redo() { reveal { $0.redo() } }
+
+    private func reveal(_ step: (UndoManager) -> Void) {
+        guard let undoManager = canvas.undoManager else { return }
+        let before = canvas.drawing
+        step(undoManager)
+        guard let change = DrawingChange.bounds(from: before, to: canvas.drawing) else { return }
+        let zoom = canvas.zoomScale
+        let visible = CGRect(
+            x: canvas.contentOffset.x / zoom, y: canvas.contentOffset.y / zoom, width: canvas.bounds.width / zoom,
+            height: canvas.bounds.height / zoom)
+        guard !visible.intersects(change) else { return }
+        let inset = canvas.contentInset
+        let x = min(
+            max(change.midX * zoom - canvas.bounds.width / 2, -inset.left),
+            max(canvas.contentSize.width - canvas.bounds.width + inset.right, -inset.left))
+        let y = min(
+            max(change.midY * zoom - canvas.bounds.height / 2, -inset.top),
+            max(canvas.contentSize.height - canvas.bounds.height + inset.bottom, -inset.top))
+        canvas.setContentOffset(CGPoint(x: x, y: y), animated: true)
+    }
+
+    @objc private func undoStateChanged(_ notification: Notification) {
+        guard let undoManager = canvas.undoManager, notification.object as? UndoManager === undoManager else { return }
+        if model.undoManager !== undoManager { model.undoManager = undoManager }
+        controller.canUndo = undoManager.canUndo
+        controller.canRedo = undoManager.canRedo
     }
 
     func apply(gutter: ThemeColor, hairline: ThemeColor) {
@@ -97,6 +139,7 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
     }
 
     private func layoutChanged() {
+        if let undoManager = canvas.undoManager, model.undoManager !== undoManager { model.undoManager = undoManager }
         guard canvas.bounds.width > 0, canvas.bounds.height > 0 else { return }
         let newZoom = ZoomRange(viewSize: canvas.bounds.size, layout: layout)
         guard newZoom != zoom else {
@@ -128,7 +171,7 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
         if insets != canvas.contentInset { canvas.contentInset = insets }
     }
 
-    private func scroll(toPage index: Int, animated: Bool) {
+    func scroll(toPage index: Int, animated: Bool) {
         let top = (layout.pageRect(index).minY - PageLayout.gutter / 2) * canvas.zoomScale
         let minOffset = -canvas.contentInset.top
         let maxOffset = max(canvas.contentSize.height - canvas.bounds.height + canvas.contentInset.bottom, minOffset)
