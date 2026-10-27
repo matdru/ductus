@@ -7,9 +7,14 @@ struct ZoomRange: Equatable {
     /// How many whole pages fit on screen when zoomed all the way out.
     static let pagesWhenZoomedOut = 2.0
 
+    /// Landscape opens a little zoomed out: at page width the tall page fills the wide screen edge to edge.
+    static let landscapeStart = 0.8
+
     let fit: Double
     let minimum: Double
     let maximum: Double
+    /// Where a notebook opens: page width in portrait, 80% of it in landscape.
+    let initial: Double
 
     init(viewSize: CGSize, layout: PageLayout) {
         fit = viewSize.width / layout.contentSize.width
@@ -17,6 +22,15 @@ struct ZoomRange: Equatable {
         let pageStride = layout.pageSize.height + PageLayout.gutter
         let zoomedOut = viewSize.height / (Self.pagesWhenZoomedOut * pageStride + PageLayout.gutter)
         minimum = min(zoomedOut, fit)
+        let isLandscape = viewSize.width > viewSize.height
+        initial = max(isLandscape ? fit * Self.landscapeStart : fit, minimum)
+    }
+
+    /// The zoom after the view changes size (rotation, Split View), given the zoom before it. Still at the starting
+    /// zoom, it takes the new size's starting zoom; a pinched zoom stays the same relative to page width.
+    func zoom(afterResizingFrom old: ZoomRange?, at current: Double) -> Double {
+        guard let old, abs(current - old.initial) > old.fit * 0.01 else { return initial }
+        return min(max(fit * current / old.fit, minimum), maximum)
     }
 
     /// Insets that keep content smaller than the view centred in it, rather than pinned to the top left.

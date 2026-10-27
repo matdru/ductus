@@ -31,6 +31,44 @@ struct ZoomRangeTests {
         #expect(range.minimum < range.fit * 0.6)
     }
 
+    @Test func landscapeOpensAt80Percent() {
+        let range = ZoomRange(viewSize: landscape, layout: layout)
+        #expect(abs(range.initial - range.fit * 0.8) < 0.0001)
+    }
+
+    @Test func portraitOpensAtPageWidth() {
+        let range = ZoomRange(viewSize: portrait, layout: layout)
+        #expect(range.initial == range.fit)
+    }
+
+    @Test func initialZoomNeverGoesBelowTheMinimum() {
+        // A very short, wide view: zoomed all the way out is above 80%.
+        let range = ZoomRange(viewSize: CGSize(width: 1400, height: 3000), layout: PageLayout(size: .a5, pageCount: 1))
+        #expect(range.initial >= range.minimum)
+        let wide = ZoomRange(viewSize: CGSize(width: 3000, height: 300), layout: layout)
+        #expect(wide.initial >= wide.minimum)
+    }
+
+    @Test func opensAtTheStartingZoom() {
+        let range = ZoomRange(viewSize: landscape, layout: layout)
+        #expect(range.zoom(afterResizingFrom: nil, at: 1) == range.initial)
+    }
+
+    @Test func rotatingAtTheStartingZoomTakesTheNewOrientationsStart() {
+        let wide = ZoomRange(viewSize: landscape, layout: layout)
+        let tall = ZoomRange(viewSize: portrait, layout: layout)
+        #expect(tall.zoom(afterResizingFrom: wide, at: wide.initial) == tall.initial)
+        #expect(wide.zoom(afterResizingFrom: tall, at: tall.initial) == wide.initial)
+    }
+
+    @Test func rotatingKeepsAPinchedZoom() {
+        let wide = ZoomRange(viewSize: landscape, layout: layout)
+        let tall = ZoomRange(viewSize: portrait, layout: layout)
+        // Pinched to 150% of page width in landscape: still 150% in portrait.
+        let zoom = tall.zoom(afterResizingFrom: wide, at: wide.fit * 1.5)
+        #expect(abs(zoom - tall.fit * 1.5) < 0.0001)
+    }
+
     @Test func narrowContentIsCentred() {
         let insets = ZoomRange.centringInsets(content: CGSize(width: 400, height: 3000), bounds: landscape)
         #expect(abs(insets.left - (landscape.width - 400) / 2) < 0.0001)

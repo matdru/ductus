@@ -178,12 +178,12 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
             centreContent()
             return
         }
-        let relative = zoom.map { canvas.zoomScale / $0.fit } ?? 1
         let firstLayout = zoom == nil
+        let scale = newZoom.zoom(afterResizingFrom: zoom, at: canvas.zoomScale)
         zoom = newZoom
         canvas.minimumZoomScale = newZoom.minimum
         canvas.maximumZoomScale = newZoom.maximum
-        canvas.zoomScale = min(max(newZoom.fit * relative, newZoom.minimum), newZoom.maximum)
+        canvas.zoomScale = scale
         updateContentSize()
         if firstLayout { scroll(toPage: model.currentPage, animated: false) }
     }
