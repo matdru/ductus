@@ -116,7 +116,6 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate {
         let scale = canvas.zoomScale
         let size = CGSize(width: layout.contentSize.width * scale, height: layout.contentSize.height * scale)
         canvas.contentSize = size
-        underlay.frame = CGRect(origin: .zero, size: size)
         underlay.setZoom(scale)
         controller.zoomPercent = Int((scale / max(zoom?.fit ?? 1, 0.0001) * 100).rounded())
         centreContent()

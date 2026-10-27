@@ -85,21 +85,23 @@ struct NotebookCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Group {
-                if let thumbnail {
-                    // A close-up of the latest writing (see `Thumbnailer`); narrower cards trim its sides.
-                    Image(uiImage: thumbnail).resizable().scaledToFill()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    PaperGlimpse(paper: notebook.paper)
+            // The preview fills a fixed area; in an overlay, the image can't push the card wider than its column.
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 132)
+                .overlay {
+                    if let thumbnail {
+                        // A close-up of the latest writing (see `Thumbnailer`); narrower cards trim its sides.
+                        Image(uiImage: thumbnail).resizable().scaledToFill()
+                    } else {
+                        PaperGlimpse(paper: notebook.paper)
+                    }
                 }
-            }
-            .frame(height: 132)
-            .clipped()
-            .task(id: notebook.modifiedAt) {
-                thumbnail = await library.thumbnail(for: notebook).flatMap(UIImage.init(data:))
-            }
-            .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.hairline).frame(height: 1) }
+                .clipped()
+                .task(id: notebook.modifiedAt) {
+                    thumbnail = await library.thumbnail(for: notebook).flatMap(UIImage.init(data:))
+                }
+                .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.hairline).frame(height: 1) }
             HStack(spacing: 10) {
                 RoundedRectangle(cornerRadius: 2).fill(notebook.tint(in: theme)).frame(width: 8, height: 8)
                 Text(notebook.title).style(theme.typography.headline).foregroundStyle(theme.colors.textPrimary)

@@ -2,8 +2,9 @@ import NotebookCore
 import Paper
 import UIKit
 
-/// The pages' paper, drawn behind the ink. Its size tracks the zoomed content; a tiled layer draws only visible
-/// tiles, on background threads, so tall notebooks stay cheap and lines stay sharp at every zoom.
+/// The pages' paper, drawn behind the ink. It's laid out in canvas units and zoomed with a transform, so a pinch
+/// never redraws it: the tiled layer keeps its tiles and swaps in sharper levels of detail as you zoom in. Only
+/// visible tiles are drawn, on background threads, so tall notebooks stay cheap.
 final class PaperUnderlayView: UIView {
     override static var layerClass: AnyClass { PaperTiledLayer.self }
     // swiftlint:disable:next force_cast
@@ -13,8 +14,11 @@ final class PaperUnderlayView: UIView {
         super.init(frame: frame)
         isUserInteractionEnabled = false
         isOpaque = true
+        layer.anchorPoint = .zero
         tiledLayer.tileSize = CGSize(width: 512, height: 512)
-        tiledLayer.levelsOfDetail = 1
+        // Levels at 8×, 4×, 2×, 1× and ½× cover every zoom `ZoomRange` allows.
+        tiledLayer.levelsOfDetail = 5
+        tiledLayer.levelsOfDetailBias = 3
     }
 
     @available(*, unavailable)
@@ -32,10 +36,14 @@ final class PaperUnderlayView: UIView {
             $0.layout = layout
             $0.pageSize = notebook.size
         }
+        bounds = CGRect(origin: .zero, size: layout.contentSize)
+        layer.position = .zero
     }
 
+    /// Scales the paper to the canvas's zoom. Cheap: no tiles are redrawn.
     func setZoom(_ zoom: Double) {
-        tiledLayer.update { $0.zoom = zoom }
+        transform = CGAffineTransform(scaleX: zoom, y: zoom)
+        layer.position = .zero
     }
 
     func setColors(gutter: UIColor, hairline: UIColor) {
@@ -53,7 +61,6 @@ final class PaperTiledLayer: CATiledLayer, @unchecked Sendable {
         var pages: [PaperLayout] = []
         var layout = PageLayout(size: .a5, pageCount: 1)
         var pageSize = PageSize.a5
-        var zoom = 1.0
         var gutter = CGColor(gray: 0.95, alpha: 1)
         var hairline = CGColor(gray: 0.85, alpha: 1)
     }
@@ -95,24 +102,21 @@ final class PaperTiledLayer: CATiledLayer, @unchecked Sendable {
         context.setFillColor(state.gutter)
         context.fill(dirty)
         let pageSize = CGSize(width: state.pageSize.width, height: state.pageSize.height)
-        // Layer points per page point.
-        let scale = state.zoom * PageLayout.unitsPerPoint
+        // The layer is in canvas units; paper is drawn in page points.
+        let scale = PageLayout.unitsPerPoint
         for (index, paper) in state.pages.enumerated() {
             let rect = state.layout.pageRect(index)
-            let onScreen = CGRect(
-                x: rect.minX * state.zoom, y: rect.minY * state.zoom, width: rect.width * state.zoom,
-                height: rect.height * state.zoom)
-            guard onScreen.intersects(dirty) else { continue }
+            guard rect.intersects(dirty) else { continue }
             context.saveGState()
-            context.translateBy(x: onScreen.minX, y: onScreen.minY)
+            context.translateBy(x: rect.minX, y: rect.minY)
             context.scaleBy(x: scale, y: scale)
-            let localDirty = dirty.offsetBy(dx: -onScreen.minX, dy: -onScreen.minY)
+            let localDirty = dirty.offsetBy(dx: -rect.minX, dy: -rect.minY)
                 .applying(CGAffineTransform(scaleX: 1 / scale, y: 1 / scale))
             PaperRenderer.draw(paper, in: context, pageSize: pageSize, dirty: localDirty)
             context.restoreGState()
             context.setStrokeColor(state.hairline)
             context.setLineWidth(1)
-            context.stroke(onScreen.insetBy(dx: -0.5, dy: -0.5))
+            context.stroke(rect.insetBy(dx: -0.5, dy: -0.5))
         }
     }
 }
