@@ -4,8 +4,9 @@ import UIKit
 /// so it can't turn a two-finger tap into a three-finger one. The Pencil never takes part.
 @MainActor
 final class FingerTap: NSObject, UIGestureRecognizerDelegate {
-    /// Touches wider than this (radius, points) are a palm or the side of a hand, not a fingertip.
-    nonisolated static let palmRadius = 35.0
+    /// Touches wider than this (radius, points) are a palm or the side of a hand, not a fingertip. The iPad reports
+    /// radii in steps of about 10.4pt: fingertips land at 21–42 depending on how firmly they press, palms at 52 and up.
+    nonisolated static let palmRadius = 47.0
 
     nonisolated static func isFinger(majorRadius: Double) -> Bool { majorRadius < palmRadius }
 

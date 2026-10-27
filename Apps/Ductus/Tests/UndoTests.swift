@@ -60,7 +60,14 @@ struct UndoTests {
     @Test func palmSizedTouchesAreIgnored() {
         #expect(FingerTap.isFinger(majorRadius: 8))
         #expect(FingerTap.isFinger(majorRadius: 24))
-        #expect(!FingerTap.isFinger(majorRadius: 50))
+        #expect(!FingerTap.isFinger(majorRadius: 73))
+    }
+
+    /// Radii come in steps of about 10.4pt. Recorded on an iPad Pro: fingertips at 20.9 and 31.3, a firmer press at
+    /// 41.7, and a resting palm landing at 52.1 before growing to 73.
+    @Test func aFirmlyPressedFingertipStillCounts() {
+        #expect(FingerTap.isFinger(majorRadius: 41.7))
+        #expect(!FingerTap.isFinger(majorRadius: 52.1))
     }
 
     @Test func otherTapsWaitForTheFingerTaps() {
