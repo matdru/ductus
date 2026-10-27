@@ -105,18 +105,25 @@ private struct LibrarySidebar: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        List {
-            Section {
-                row("All notebooks", section: .all) { Image(systemName: "books.vertical") }
-                row("Recent", section: .recent) { Image(systemName: "clock") }
-                row("Pinned", section: .pinned) { Image(systemName: "pin") }
-            }
-            Section("Shelves") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: SidebarMetrics.spacing) {
+                row("All notebooks", section: .all) { symbol("books.vertical") }
+                row("Recent", section: .recent) { symbol("clock") }
+                row("Pinned", section: .pinned) { symbol("pin") }
+
+                Text("Shelves".uppercased())
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .tracking(0.6)
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .padding(.leading, SidebarMetrics.inset)
+                    .padding(.top, 22)
+                    .padding(.bottom, 6)
+
                 ForEach(model.shelves) { shelf in
                     row(shelf.name, section: .shelf(shelf.id)) {
-                        RoundedRectangle(cornerRadius: 2)
+                        RoundedRectangle(cornerRadius: 2.5)
                             .fill(theme.colors.notebook(NotebookColor(rawValue: shelf.colorName) ?? .graphite))
-                            .frame(width: 10, height: 10)
+                            .frame(width: 9, height: 9)
                     }
                     .contextMenu {
                         Button("Delete shelf", systemImage: "trash", role: .destructive) {
@@ -124,39 +131,90 @@ private struct LibrarySidebar: View {
                         }
                     }
                 }
-                Button("New shelf", systemImage: "plus") { showsNewShelf = true }
-                    .foregroundStyle(theme.colors.textSecondary)
-                    .listRowBackground(Color.clear)
+                Button {
+                    showsNewShelf = true
+                } label: {
+                    SidebarRow(isSelected: false) {
+                        symbol("plus").foregroundStyle(theme.colors.textSecondary)
+                    } title: {
+                        Text("New shelf").style(theme.typography.body).foregroundStyle(theme.colors.textSecondary)
+                    } trailing: {
+                        EmptyView()
+                    }
+                }
+                .buttonStyle(SidebarButtonStyle())
             }
+            .padding(.horizontal, SidebarMetrics.margin)
+            // Lines the first row up with the search field beside it.
+            .padding(.top, 16)
+            .padding(.bottom, 8)
         }
-        .scrollContentBackground(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
         .background(theme.colors.sidebar)
         .navigationTitle("Ductus")
     }
 
-    /// Graphite's quiet selection: a raised row, not an accent fill.
+    private func symbol(_ name: String) -> some View {
+        Image(systemName: name).font(.system(size: 15, weight: .regular))
+    }
+
+    /// Graphite's quiet selection: a raised row, not an accent fill. The weight never changes, so text doesn't shift.
     private func row<Icon: View>(_ title: String, section: LibrarySection, @ViewBuilder icon: () -> Icon) -> some View {
         let isSelected = model.section == section
         return Button {
             model.section = section
         } label: {
-            Label {
-                HStack {
-                    Text(title).foregroundStyle(theme.colors.textPrimary)
-                    Spacer()
-                    Text("\(model.count(in: section))").style(theme.typography.mono)
-                        .foregroundStyle(theme.colors.textSecondary)
-                }
-            } icon: {
+            SidebarRow(isSelected: isSelected) {
                 icon().foregroundStyle(isSelected ? theme.colors.accent : theme.colors.textSecondary)
+            } title: {
+                Text(title).style(theme.typography.body).foregroundStyle(theme.colors.textPrimary).lineLimit(1)
+            } trailing: {
+                Text("\(model.count(in: section))").style(theme.typography.mono)
+                    .foregroundStyle(theme.colors.textSecondary)
             }
-            .contentShape(.rect)
         }
-        .buttonStyle(.plain)
-        .fontWeight(isSelected ? .semibold : .regular)
-        .listRowBackground(
-            RoundedRectangle(cornerRadius: theme.metrics.radiusSmall)
-                .fill(isSelected ? theme.colors.elevated : theme.colors.sidebar)
-                .padding(.horizontal, 10))
+        .buttonStyle(SidebarButtonStyle())
+    }
+}
+
+/// The sidebar's grid.
+private enum SidebarMetrics {
+    /// Space between the sidebar's edge and a row's background.
+    static let margin = 12.0
+    /// Space between a row's background and its icon; the shelf header lines up with it.
+    static let inset = 10.0
+    static let spacing = 2.0
+}
+
+/// One sidebar row on a shared grid: every icon sits in the same column, so every title starts at the same x.
+private struct SidebarRow<Icon: View, Title: View, Trailing: View>: View {
+    let isSelected: Bool
+    @ViewBuilder let icon: Icon
+    @ViewBuilder let title: Title
+    @ViewBuilder let trailing: Trailing
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 10) {
+            icon.frame(width: 18, height: 18)
+            title
+            Spacer(minLength: 8)
+            trailing
+        }
+        .padding(.horizontal, SidebarMetrics.inset)
+        .frame(height: 34)
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: theme.metrics.radiusSmall).fill(theme.colors.elevated)
+            }
+        }
+        .contentShape(.rect(cornerRadius: theme.metrics.radiusSmall))
+    }
+}
+
+/// Dims a sidebar row while it's pressed.
+private struct SidebarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
