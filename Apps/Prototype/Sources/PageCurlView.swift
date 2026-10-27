@@ -64,9 +64,9 @@ struct PageCurlView: UIViewControllerRepresentable {
             let content: AnyView
             if index < notebook.pages.count {
                 content = AnyView(
-                    PageView(model: parent.model, notebook: notebook, page: notebook.pages[index]).padding(28))
+                    PageView(model: parent.model, notebook: notebook, page: notebook.pages[index]))
             } else {
-                content = AnyView(FreshPage(notebook: notebook).padding(28))
+                content = AnyView(FreshPage(notebook: notebook))
             }
             return PageHost(index: index, content: content)
         }

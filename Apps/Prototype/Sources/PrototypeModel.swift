@@ -31,14 +31,14 @@ final class PrototypeModel {
     var notebooks: [Notebook] = PrototypeModel.samples()
     var drawings: [UUID: PKDrawing] = [:]
     var style: PrototypeStyle = .tactile
-    var navigation: PageNavigation = .turn
+    /// Remembered between launches.
+    var navigation: PageNavigation =
+        PageNavigation(rawValue: UserDefaults.standard.string(forKey: "navigation") ?? "") ?? .turn
+    {
+        didSet { UserDefaults.standard.set(navigation.rawValue, forKey: "navigation") }
+    }
     var tool: PrototypeTool = .ink(.fountainPen)
     var inkColor: Color = .black
-
-    /// Tactile opens on page turn, clean on scroll, but either can be switched in the editor.
-    func applyStyleDefaults() {
-        navigation = style == .tactile ? .turn : .scroll
-    }
 
     var pkTool: PKTool {
         switch tool {

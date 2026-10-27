@@ -46,7 +46,6 @@ struct LibraryView: View {
                     .frame(width: 180)
                 }
             }
-            .onChange(of: model.style) { model.applyStyleDefaults() }
             .onAppear {
                 // For screenshots: `-openNotebook <index>` opens a sample notebook on launch.
                 let arguments = ProcessInfo.processInfo.arguments

@@ -36,8 +36,12 @@ struct NotebookView: View {
     private func content(_ notebook: Notebook) -> some View {
         switch model.navigation {
         case .turn:
+            // Sized to the page itself, so the curl starts at the page's edge rather than the screen's.
             PageCurlView(model: model, notebookID: notebookID, currentIndex: $currentIndex)
-                .ignoresSafeArea(edges: .bottom)
+                .aspectRatio(notebook.size.width / notebook.size.height, contentMode: .fit)
+                .padding(.horizontal, 28)
+                .padding(.top, 12)
+                .padding(.bottom, 92)
         case .scroll:
             ScrollView {
                 LazyVStack(spacing: 28) {
@@ -106,6 +110,9 @@ struct ToolStrip: View {
                         .frame(width: 44, height: 40)
                         .foregroundStyle(model.tool == tool ? Color.white : Color.primary)
                         .background(model.tool == tool ? Color.accentColor : .clear, in: .rect(cornerRadius: 10))
+                        // Clear backgrounds aren't hit-testable: without this, taps between the glyph's strokes
+                        // fall through to the page underneath.
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tool.name)
@@ -119,6 +126,7 @@ struct ToolStrip: View {
                         .overlay(Circle().stroke(.white, lineWidth: model.inkColor == color ? 3 : 0))
                         .shadow(radius: 1)
                         .frame(width: 34, height: 40)
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
             }
