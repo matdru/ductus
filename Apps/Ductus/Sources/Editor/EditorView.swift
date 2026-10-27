@@ -22,16 +22,16 @@ struct EditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            ZStack(alignment: .topLeading) {
+            ZStack {
                 if model.isLoaded {
                     NotebookCanvasView(
                         model: model, controller: controller, gutterColor: theme.colors.canvas,
                         hairlineColor: theme.colors.hairline, settings: settings.settings,
-                        penCase: settings.penCase,
-                        pencilTapped: { settings.penCase.pencilTapped($0) })
+                        toolbox: settings.toolbox,
+                        pencilTapped: { settings.toolbox.pencilTapped($0) })
                 }
-                PenCaseRail(penCase: Bindable(settings).penCase).padding(14)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             statusBar
         }
         .background(theme.colors.canvas)
@@ -39,7 +39,7 @@ struct EditorView: View {
             .background(TouchRecorderInstaller())
         #endif
         .tint(theme.colors.accent)
-        .onChange(of: settings.penCase.selection) { _, tool in TouchRecorder.event("tool", ["tool": "\(tool)"]) }
+        .onChange(of: settings.toolbox.selection) { _, tool in TouchRecorder.event("tool", ["tool": "\(tool)"]) }
         .task { await model.load() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { Task { await model.saveNow() } }
@@ -47,7 +47,20 @@ struct EditorView: View {
         .onDisappear { Task { await model.saveNow() } }
     }
 
+    /// Where you are on the left, the ink toolbar in the middle, undo, redo and add page on the right.
     private var header: some View {
+        HStack(spacing: 12) {
+            breadcrumb.frame(maxWidth: .infinity, alignment: .leading)
+            EditorToolbar(toolbox: Bindable(settings).toolbox)
+            pageActions.frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 52)
+        .background(theme.colors.sidebar)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.hairline).frame(height: 1) }
+    }
+
+    private var breadcrumb: some View {
         HStack(spacing: 6) {
             iconButton("Back to notebooks", "chevron.left") {
                 Task {
@@ -63,7 +76,12 @@ struct EditorView: View {
                 .lineLimit(1)
             Text("/").foregroundStyle(theme.colors.textTertiary)
             Text("p. \(model.currentPage + 1)").style(theme.typography.mono).foregroundStyle(theme.colors.textPrimary)
-            Spacer()
+                .fixedSize()
+        }
+    }
+
+    private var pageActions: some View {
+        HStack(spacing: 2) {
             iconButton("Undo", "arrow.uturn.backward", isEnabled: controller.canUndo) { controller.undo() }
                 .keyboardShortcut("z")
             iconButton("Redo", "arrow.uturn.forward", isEnabled: controller.canRedo) { controller.redo() }
@@ -75,10 +93,6 @@ struct EditorView: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 50)
-        .background(theme.colors.sidebar)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.hairline).frame(height: 1) }
     }
 
     private var statusBar: some View {
@@ -105,12 +119,10 @@ struct EditorView: View {
     }
 
     private var toolDescription: String {
-        let penCase = settings.penCase
-        switch penCase.selection {
-        case .pen:
-            guard let pen = penCase.selectedPen else { return "" }
-            return "\(pen.ink.name) · \(String(format: "%.1f", pen.widthInPoints)) pt · \(pen.colorName)"
-        case .eraser: return penCase.eraser == .stroke ? "Eraser · Strokes" : "Eraser · Pixels"
+        let toolbox = settings.toolbox
+        switch toolbox.selection {
+        case .ink(let ink): return "\(ink.name) · \(toolbox.size.name) · \(toolbox.colorName)"
+        case .eraser: return "Eraser · \(toolbox.eraser.name)"
         case .lasso: return "Lasso"
         }
     }

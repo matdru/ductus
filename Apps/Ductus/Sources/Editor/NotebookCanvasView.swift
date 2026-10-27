@@ -25,7 +25,7 @@ struct NotebookCanvasView: UIViewRepresentable {
     let gutterColor: ThemeColor
     let hairlineColor: ThemeColor
     let settings: AppSettings
-    let penCase: PenCase
+    let toolbox: Toolbox
     /// A double-tap or squeeze on the Pencil, already resolved against Settings.
     let pencilTapped: (PencilTapAction) -> Void
 
@@ -41,7 +41,7 @@ struct NotebookCanvasView: UIViewRepresentable {
 
     func updateUIView(_ canvas: PKCanvasView, context: Context) {
         context.coordinator.pencilTapped = pencilTapped
-        context.coordinator.sync(tool: penCase.pkTool, layout: model.layout, revision: model.revision)
+        context.coordinator.sync(tool: toolbox.pkTool, layout: model.layout, revision: model.revision)
         context.coordinator.apply(gutter: gutterColor, hairline: hairlineColor)
         context.coordinator.apply(settings)
     }
