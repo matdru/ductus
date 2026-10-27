@@ -62,10 +62,10 @@ The look is data, so re-skinning never touches screens:
 
 ## Page editor (Apps/Ductus/Sources/Editor)
 
-- **One tall `PKCanvasView` per open notebook** with pages stacked vertically (`PageLayout`: 2 canvas units per page point, 40-unit gutters). PencilKit owns scrolling and pinch zoom (fit-to-width up to 4×), so ink stays vector-crisp.
+- **One tall `PKCanvasView` per open notebook** with pages stacked vertically (`PageLayout`: 2 canvas units per page point, 40-unit gutters). PencilKit owns scrolling and pinch zoom (`ZoomRange`: 100% is fit-to-width; out to about two whole pages on screen, in to 4×; a page narrower than the screen is centred), so ink stays vector-crisp.
 - **Paper** is a `PaperUnderlayView` inside the canvas. Its `CATiledLayer` is sized to the zoomed content and draws only visible tiles, on background threads, from a locked snapshot.
 - **Saving:** pages are stored separately. `PageLayout.split` assigns each stroke to the page nearest its centre and converts it to page coordinates; `combine` reverses that on load.
-- **`EditorModel`** autosaves about a second after the last edit, and immediately on background or close. It writes only changed pages, deletes files for pages erased blank, never creates files for blank pages, and leaves unreadable pages untouched unless drawn on. After each save it renders PNG thumbnails off the main thread (`Thumbnailer`); library cards show them.
+- **`EditorModel`** autosaves about a second after the last edit, and immediately on background or close. It writes only changed pages, deletes files for pages erased blank, never creates files for blank pages, and leaves unreadable pages untouched unless drawn on. After each save it renders PNG thumbnails off the main thread (`Thumbnailer`). A thumbnail is a near life-size close-up of the page's latest strokes ("where you left off"), not the whole page shrunk, which is never readable on a card. Ink is rendered in light appearance so PencilKit doesn't invert it.
 
 ## Notebooks (NotebookCore, NotebookStore)
 
