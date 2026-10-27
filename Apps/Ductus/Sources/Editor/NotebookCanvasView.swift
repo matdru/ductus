@@ -51,6 +51,8 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
     private var isApplyingModel = false
     private var zoom: ZoomRange?
     private var fingerTap: FingerTap?
+    /// True while Ductus itself is undoing or redoing, to spot undos that came from elsewhere.
+    private var isStepping = false
 
     init(model: EditorModel, controller: CanvasController) {
         self.model = model
@@ -94,6 +96,8 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
 
     private func reveal(_ name: String, source: String, _ step: (UndoManager) -> Void) {
         guard let undoManager = canvas.undoManager else { return }
+        isStepping = true
+        defer { isStepping = false }
         let before = canvas.drawing
         let available = name == "undo" ? undoManager.canUndo : undoManager.canRedo
         let action = name == "undo" ? undoManager.undoActionName : undoManager.redoActionName
@@ -124,6 +128,13 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
 
     @objc private func undoStateChanged(_ notification: Notification) {
         guard let undoManager = canvas.undoManager, notification.object as? UndoManager === undoManager else { return }
+        if !isStepping,
+            notification.name == .NSUndoManagerDidUndoChange || notification.name == .NSUndoManagerDidRedoChange
+        {
+            // Something other than Ductus's buttons, taps or shortcuts undid or redid (a system gesture or menu).
+            TouchRecorder.event(
+                notification.name == .NSUndoManagerDidUndoChange ? "unattributedUndo" : "unattributedRedo")
+        }
         if model.undoManager !== undoManager { model.undoManager = undoManager }
         controller.canUndo = undoManager.canUndo
         controller.canRedo = undoManager.canRedo
@@ -221,9 +232,19 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
     }
 }
 
-/// A PKCanvasView that reports layout passes (size changes, rotation), so zoom can be refitted.
+/// A PKCanvasView that reports layout passes (size changes, rotation), so zoom can be refitted, and turns off iPadOS's
+/// three-finger editing gestures: their tap opens an edit menu that the next three-finger redo tap presses, and their
+/// swipes undo. Ductus's own two- and three-finger taps replace them.
 final class LayoutReportingCanvasView: PKCanvasView {
     var onLayout: (() -> Void)?
+
+    override var editingInteractionConfiguration: UIEditingInteractionConfiguration { .none }
+
+    /// iPadOS asks the first responder for its editing configuration, so the canvas takes that role on screen.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { becomeFirstResponder() }
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()

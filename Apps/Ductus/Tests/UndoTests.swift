@@ -73,6 +73,11 @@ struct UndoTests {
         for own in view.gestureRecognizers ?? [] { #expect(!fingerTap.delays(own)) }
     }
 
+    @Test func theCanvasOptsOutOfSystemThreeFingerEditing() {
+        // iPadOS's three-finger tap opens an edit menu (and swipes undo); taps on that menu caused stray undos.
+        #expect(LayoutReportingCanvasView().editingInteractionConfiguration == .none)
+    }
+
     // MARK: Adding pages
 
     struct Fixture {
