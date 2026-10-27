@@ -107,4 +107,18 @@ struct LibraryModelTests {
         #expect(reloaded.notebooks.first?.shelfID == nil)
         #expect(model.section == .all)
     }
+
+    @Test func appendPageAndMarkEditedPersist() async throws {
+        let model = await loadedModel()
+        let id = try await model.create(draft("Pages")).id
+        let grown = try await model.appendPage(id)
+        #expect(grown.pages.count == 2)
+        let page = grown.pages[1].id
+        let before = grown.modifiedAt
+        try await model.markEdited(id, pages: [page])
+        let reloaded = try #require(await loadedModel().notebooks.first)
+        #expect(reloaded.pages.count == 2)
+        #expect(reloaded.modifiedAt > before)
+        #expect(reloaded.pages[1].modifiedAt > grown.pages[1].modifiedAt)
+    }
 }

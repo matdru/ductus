@@ -46,7 +46,7 @@ struct LibraryView: View {
             }
         }
         .fullScreenCover(item: $openNotebook) { notebook in
-            OpenNotebookView(notebook: notebook)
+            EditorView(notebook: notebook, library: model, shelfName: model.shelf(notebook.shelfID)?.name)
         }
         .alert("New shelf", isPresented: $showsNewShelf) {
             TextField("Name", text: $newShelfName)
@@ -63,7 +63,15 @@ struct LibraryView: View {
         } message: {
             Text(errorMessage ?? "")
         }
-        .task { await model.load() }
+        .task {
+            await model.load()
+            #if DEBUG
+                // Screenshots: `-openFirstNotebook` opens the most recent notebook on launch.
+                if ProcessInfo.processInfo.arguments.contains("-openFirstNotebook") {
+                    openNotebook = model.notebooks(in: .all).first
+                }
+            #endif
+        }
     }
 
     private var currentShelf: UUID? {

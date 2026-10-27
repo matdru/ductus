@@ -31,7 +31,7 @@ final class LibraryModel {
     var section: LibrarySection = .all
     var searchText = ""
 
-    private let store: NotebookStore
+    let store: NotebookStore
 
     init(store: NotebookStore) {
         self.store = store
@@ -66,6 +66,14 @@ final class LibraryModel {
 
     func count(in section: LibrarySection) -> Int {
         notebooks(in: section).count
+    }
+
+    /// The thumbnail of the notebook's most recently edited page that has one.
+    func thumbnail(for notebook: Notebook) async -> Data? {
+        for page in notebook.pages.sorted(by: { $0.modifiedAt > $1.modifiedAt }).prefix(8) {
+            if let data = try? await store.thumbnailData(page: page.id, in: notebook.id) { return data }
+        }
+        return nil
     }
 
     func shelf(_ id: UUID?) -> Shelf? {
@@ -118,6 +126,22 @@ final class LibraryModel {
         }
         notebooks.append(copy)
         return copy
+    }
+
+    /// Adds a blank page at the end and returns the updated notebook.
+    @discardableResult
+    func appendPage(_ id: UUID) async throws -> Notebook {
+        try await update(id) { $0.appendPage() }
+        guard let notebook = notebooks.first(where: { $0.id == id }) else { throw LibraryError.notFound }
+        return notebook
+    }
+
+    /// Records that these pages' ink changed (the notebook's and each page's modified date).
+    func markEdited(_ id: UUID, pages: [UUID]) async throws {
+        let now = Date()
+        try await update(id) { notebook in
+            for page in pages { notebook.markPageEdited(page, at: now) }
+        }
     }
 
     func delete(_ id: UUID) async throws {

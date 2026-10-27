@@ -147,28 +147,3 @@ struct FirstLaunchView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-
-/// Opens a notebook's first page. Temporary: writing isn't saved until the page editor and autosave land
-/// (DRU-35, DRU-43).
-struct OpenNotebookView: View {
-    let notebook: Notebook
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        NavigationStack {
-            CanvasView()
-                .ignoresSafeArea(edges: .bottom)
-                .navigationTitle(notebook.title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Text("Not saved yet").style(theme.typography.caption).foregroundStyle(
-                            theme.colors.textSecondary)
-                    }
-                }
-        }
-        .tint(theme.colors.accent)
-    }
-}

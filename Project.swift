@@ -79,6 +79,7 @@ let project = Project(
         + module("NotebookCore")
         + module("NotebookStore", dependencies: [.target(name: "NotebookCore")])
         + module("DesignSystem")
+        + module("Paper", dependencies: [.target(name: "NotebookCore")])
         + app(
             "FeelLab", bundleId: "app.ductus.feellab",
             dependencies: [.target(name: "InkCore"), .target(name: "InkMetal"), .target(name: "InkPencilKit")],
@@ -87,7 +88,7 @@ let project = Project(
             "Ductus", bundleId: "app.ductus",
             dependencies: [
                 .target(name: "InkCore"), .target(name: "InkPencilKit"), .target(name: "DesignSystem"),
-                .target(name: "NotebookCore"), .target(name: "NotebookStore"),
+                .target(name: "NotebookCore"), .target(name: "NotebookStore"), .target(name: "Paper"),
             ],
             tests: true)
         // Throwaway look-and-feel prototype (Linear DRU-32); not shipped.

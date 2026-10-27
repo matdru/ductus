@@ -142,4 +142,15 @@ struct NotebookStoreTests {
         // A blank page has nothing to copy, and that's fine.
         try await store.copyPageData(page: UUID(), from: source.id, to: UUID(), in: copy.id)
     }
+
+    @Test func thumbnailsRoundTripAndGoWithTheirPage() async throws {
+        let notebook = notebook("Thumbs")
+        try await store.save(notebook)
+        let page = notebook.pages[0].id
+        #expect(try await store.thumbnailData(page: page, in: notebook.id) == nil)
+        try await store.saveThumbnail(Data([7]), page: page, in: notebook.id)
+        #expect(try await store.thumbnailData(page: page, in: notebook.id) == Data([7]))
+        try await store.deletePageData(page: page, in: notebook.id)
+        #expect(try await store.thumbnailData(page: page, in: notebook.id) == nil)
+    }
 }

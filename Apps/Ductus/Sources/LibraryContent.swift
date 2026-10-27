@@ -110,7 +110,7 @@ struct LibraryContent: View {
                 Button {
                     open(notebook)
                 } label: {
-                    NotebookCard(notebook: notebook)
+                    NotebookCard(notebook: notebook, library: model)
                 }
                 .buttonStyle(.plain)
                 .contextMenu { menu(for: notebook) }

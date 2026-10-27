@@ -7,6 +7,7 @@ import NotebookCore
 ///     <root>/<notebook-id>.ductus/
 ///       manifest.json             NotebookManifest
 ///       pages/<page-id>.drawing   opaque page ink (the app stores PKDrawing.dataRepresentation())
+///       thumbnails/<page-id>.png  page preview for the library
 ///
 /// Every write is atomic (temporary file, then rename), so a crash or kill mid-save leaves the previous
 /// version intact, never a half-written file. Page ink is opaque `Data`, which keeps this module free of
@@ -24,6 +25,7 @@ public actor NotebookStore {
     static let pagesDirectory = "pages"
     static let pageExtension = "drawing"
     static let libraryName = "library.json"
+    static let thumbnailsDirectory = "thumbnails"
 
     private let root: URL
     private let files = FileManager.default
@@ -86,10 +88,24 @@ public actor NotebookStore {
         try LibraryManifest.encode(shelves).write(to: root.appending(path: Self.libraryName), options: .atomic)
     }
 
+    public func saveThumbnail(_ data: Data, page: UUID, in notebook: UUID) throws {
+        let url = thumbnailURL(page, in: notebook)
+        try files.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
+    }
+
+    public func thumbnailData(page: UUID, in notebook: UUID) throws -> Data? {
+        let url = thumbnailURL(page, in: notebook)
+        guard files.fileExists(atPath: url.path) else { return nil }
+        return try Data(contentsOf: url)
+    }
+
+    /// Removes the page's ink and its thumbnail.
     public func deletePageData(page: UUID, in notebook: UUID) throws {
-        let url = pageURL(page, in: notebook)
-        guard files.fileExists(atPath: url.path) else { return }
-        try files.removeItem(at: url)
+        for url in [pageURL(page, in: notebook), thumbnailURL(page, in: notebook)]
+        where files.fileExists(atPath: url.path) {
+            try files.removeItem(at: url)
+        }
     }
 
     public func delete(notebook: UUID) throws {
@@ -104,6 +120,10 @@ public actor NotebookStore {
 
     private func pagesURL(_ notebook: UUID) -> URL {
         packageURL(notebook).appending(path: Self.pagesDirectory)
+    }
+
+    private func thumbnailURL(_ page: UUID, in notebook: UUID) -> URL {
+        packageURL(notebook).appending(path: "\(Self.thumbnailsDirectory)/\(page.uuidString).png")
     }
 
     private func pageURL(_ page: UUID, in notebook: UUID) -> URL {

@@ -79,13 +79,26 @@ struct PaperGlimpse: View {
 /// A recent-notebook card: paper glimpse, colour swatch, title and current page count.
 struct NotebookCard: View {
     let notebook: Notebook
+    let library: LibraryModel
+    @State private var thumbnail: UIImage?
     @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PaperGlimpse(paper: notebook.paper)
-                .frame(height: 132)
-                .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.hairline).frame(height: 1) }
+            Group {
+                if let thumbnail {
+                    Image(uiImage: thumbnail).resizable().scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                } else {
+                    PaperGlimpse(paper: notebook.paper)
+                }
+            }
+            .frame(height: 132)
+            .clipped()
+            .task(id: notebook.modifiedAt) {
+                thumbnail = await library.thumbnail(for: notebook).flatMap(UIImage.init(data:))
+            }
+            .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.hairline).frame(height: 1) }
             HStack(spacing: 10) {
                 RoundedRectangle(cornerRadius: 2).fill(notebook.tint(in: theme)).frame(width: 8, height: 8)
                 Text(notebook.title).style(theme.typography.headline).foregroundStyle(theme.colors.textPrimary)
