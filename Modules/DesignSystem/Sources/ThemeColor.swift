@@ -37,7 +37,7 @@ public struct RGBA: Sendable, Hashable {
         return (lighter + 0.05) / (darker + 0.05)
     }
 
-    var uiColor: UIColor { UIColor(red: red, green: green, blue: blue, alpha: alpha) }
+    public var uiColor: UIColor { UIColor(red: red, green: green, blue: blue, alpha: alpha) }
 
     /// For content colours that don't change with the theme, like paper. UI chrome uses `ThemeColor` tokens.
     public var color: Color { Color(uiColor: uiColor) }

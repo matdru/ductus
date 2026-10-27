@@ -30,6 +30,7 @@ Modules/
   NotebookCore/  pure Swift: Notebook, Page, paper/cover catalogue, manifest format
   NotebookStore/ notebooks on disk: one package per notebook, one file per page
   DesignSystem/  swappable themes: semantic colour, type and metric tokens
+  Paper/         paper layouts from millimetre specs + Core Graphics renderer
 docs/
 ```
 
@@ -58,6 +59,13 @@ The look is data, so re-skinning never touches screens:
   - SwiftLint's `no_raw_colors` rule fails the build on raw colours in `Apps/Ductus`.
   - `ThemeTests` checks WCAG AA contrast (≥ 4.5) for every text/background pairing in every theme, light and dark.
 - Paper and ink are content, not theme.
+
+## Page editor (Apps/Ductus/Sources/Editor)
+
+- **One tall `PKCanvasView` per open notebook** with pages stacked vertically (`PageLayout`: 2 canvas units per page point, 40-unit gutters). PencilKit owns scrolling and pinch zoom (fit-to-width up to 4×), so ink stays vector-crisp.
+- **Paper** is a `PaperUnderlayView` inside the canvas. Its `CATiledLayer` is sized to the zoomed content and draws only visible tiles, on background threads, from a locked snapshot.
+- **Saving:** pages are stored separately. `PageLayout.split` assigns each stroke to the page nearest its centre and converts it to page coordinates; `combine` reverses that on load.
+- **`EditorModel`** autosaves about a second after the last edit, and immediately on background or close. It writes only changed pages, deletes files for pages erased blank, never creates files for blank pages, and leaves unreadable pages untouched unless drawn on. After each save it renders PNG thumbnails off the main thread (`Thumbnailer`); library cards show them.
 
 ## Notebooks (NotebookCore, NotebookStore)
 
@@ -173,5 +181,6 @@ mise run format       # swift-format in place
 | 2026-10-26 | Planning moves to Linear (project Ductus); `docs/roadmap.md` mirrors its milestones |
 | 2026-10-26 | Minimum iPadOS 26; performance targets met on M2 with 3× headroom (no base iPad available) |
 | 2026-10-26 | Notebook storage: package per notebook, `PKDrawing` data per page, atomic writes; `NotebookCore` is Foundation-only |
+| 2026-10-27 | Editor: one tall PKCanvasView + tiled paper underlay; per-page storage via split/combine; 1 s debounced autosave |
 | 2026-10-27 | Visual language: Graphite. Look lives in `DesignSystem` themes (semantic tokens, light/dark per token); raw colours banned in the app by lint |
 | 2026-10-26 | Pro sync on CloudKit private database, no backend of our own (Linear doc "Backend & Cost Estimate") |

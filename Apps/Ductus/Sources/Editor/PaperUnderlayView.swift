@@ -78,7 +78,7 @@ final class PaperTiledLayer: CATiledLayer, @unchecked Sendable {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    override class func fadeDuration() -> CFTimeInterval { 0 }
+    override static func fadeDuration() -> CFTimeInterval { 0 }
 
     func update(_ change: (inout Snapshot) -> Void) {
         lock.lock()

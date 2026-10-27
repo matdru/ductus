@@ -1,3 +1,4 @@
+import DesignSystem
 import PencilKit
 import UIKit
 
@@ -25,9 +26,7 @@ struct EditorTool: Hashable {
                 case .red: 0xB3261E
                 case .green: 0x2E6B3F
                 }
-            return UIColor(
-                red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255,
-                blue: Double(hex & 0xFF) / 255, alpha: 1)
+            return RGBA(hex: hex).uiColor
         }
     }
 
