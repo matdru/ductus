@@ -61,12 +61,16 @@ struct ZoomRangeTests {
         #expect(wide.zoom(afterResizingFrom: tall, at: tall.initial) == wide.initial)
     }
 
-    @Test func rotatingKeepsAPinchedZoom() {
+    /// Zoom is kept relative to each orientation's start: 80% in landscape is 100% in portrait.
+    @Test func rotatingKeepsZoomRelativeToTheStart() {
         let wide = ZoomRange(viewSize: landscape, layout: layout)
         let tall = ZoomRange(viewSize: portrait, layout: layout)
-        // Pinched to 150% of page width in landscape: still 150% in portrait.
-        let zoom = tall.zoom(afterResizingFrom: wide, at: wide.fit * 1.5)
-        #expect(abs(zoom - tall.fit * 1.5) < 0.0001)
+        // 120% of page width in landscape (1.5× its start) is 150% in portrait.
+        let zoom = tall.zoom(afterResizingFrom: wide, at: wide.fit * 1.2)
+        #expect(abs(zoom / tall.fit - 1.5) < 0.0001)
+        // And back again.
+        let back = wide.zoom(afterResizingFrom: tall, at: zoom)
+        #expect(abs(back / wide.fit - 1.2) < 0.0001)
     }
 
     @Test func narrowContentIsCentred() {

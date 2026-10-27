@@ -26,11 +26,11 @@ struct ZoomRange: Equatable {
         initial = max(isLandscape ? fit * Self.landscapeStart : fit, minimum)
     }
 
-    /// The zoom after the view changes size (rotation, Split View), given the zoom before it. Still at the starting
-    /// zoom, it takes the new size's starting zoom; a pinched zoom stays the same relative to page width.
+    /// The zoom after the view changes size (rotation, Split View), given the zoom before it. Zoom stays relative to
+    /// each size's starting zoom, so 80% in landscape becomes 100% in portrait and 120% becomes 150%.
     func zoom(afterResizingFrom old: ZoomRange?, at current: Double) -> Double {
-        guard let old, abs(current - old.initial) > old.fit * 0.01 else { return initial }
-        return min(max(fit * current / old.fit, minimum), maximum)
+        guard let old else { return initial }
+        return min(max(initial * current / old.initial, minimum), maximum)
     }
 
     /// Insets that keep content smaller than the view centred in it, rather than pinned to the top left.
