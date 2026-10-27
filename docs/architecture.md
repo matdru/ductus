@@ -66,6 +66,7 @@ The look is data, so re-skinning never touches screens:
 - **Paper** is a `PaperUnderlayView` inside the canvas. Its `CATiledLayer` is sized to the zoomed content and draws only visible tiles, on background threads, from a locked snapshot.
 - **Saving:** pages are stored separately. `PageLayout.split` assigns each stroke to the page nearest its centre and converts it to page coordinates; `combine` reverses that on load.
 - **Undo** is one notebook-wide history on the canvas's undo manager (PencilKit's ink undo plus page adds). Undo or redo that changes ink off screen scrolls to it (`DrawingChange`), so it never happens unseen on another page. Two-finger tap undoes and three-finger tap redoes (`FingerTap`); touches wider than a fingertip (radius 47pt and up, measured on device) are palms and ignored. Undoing an added page removes it only while it's blank. A Pencil double-tap follows the iPadOS setting (switch to eraser and back, or to the previous tool) unless Settings overrides it.
+- **Tools** come from the `PenCase` (DRU-36): up to six of your own pens (each a PencilKit ink, a colour and a width in canvas units), a stroke or pixel eraser and the lasso. It's one Codable value saved app-wide by `SettingsStore`, so every notebook shares the same pens and the tool in hand survives relaunch. `PenCaseRail` shows the pens as nibs on a scrap of paper; tapping the pen in hand opens its settings (ink, width, colour, duplicate, remove). Changing a pen's ink keeps its width at the same place in the new ink's range.
 
 ## Settings (Apps/Ductus/Sources/Settings)
 

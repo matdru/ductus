@@ -3,7 +3,7 @@ import NotebookCore
 import NotebookStore
 import PencilKit
 
-/// An open notebook: its pages combined into one canvas drawing, the current tool, and autosave.
+/// An open notebook: its pages combined into one canvas drawing, and autosave.
 ///
 /// Autosave runs about a second after the last change (and immediately via `saveNow`, e.g. on backgrounding or
 /// closing). It writes only pages whose ink changed, never creates files for blank pages, and never overwrites a
@@ -26,14 +26,6 @@ final class EditorModel {
     private(set) var isLoaded = false
     /// Bumped whenever the model replaces the drawing itself (load, new page), so the canvas knows to take it.
     private(set) var revision = 0
-    var tool = EditorTool.default {
-        didSet {
-            if tool.kind != oldValue.kind { previousToolKind = oldValue.kind }
-            if tool != oldValue { TouchRecorder.event("tool", ["kind": "\(tool.kind)", "color": tool.color.rawValue]) }
-        }
-    }
-    /// The tool used before the current one, for the Pencil's double-tap.
-    private(set) var previousToolKind = EditorTool.default.kind
     var currentPage = 0
     /// The canvas's undo manager; ink undo is PencilKit's, page changes are registered here too.
     weak var undoManager: UndoManager?
@@ -140,11 +132,6 @@ final class EditorModel {
         }.value
         guard let png else { return }
         try? await store.saveThumbnail(png, page: page.id, in: notebook.id)
-    }
-
-    /// A double-tap or squeeze on the Pencil: switches to the eraser and back, or to the previous tool.
-    func pencilTapped(_ action: PencilTapAction) {
-        tool.kind = tool.kind.afterPencilTap(action, previous: previousToolKind)
     }
 
     /// Adds a blank page at the end of the notebook. Undo removes it again while it's still blank.

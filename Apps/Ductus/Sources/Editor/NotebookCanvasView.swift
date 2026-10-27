@@ -25,6 +25,9 @@ struct NotebookCanvasView: UIViewRepresentable {
     let gutterColor: ThemeColor
     let hairlineColor: ThemeColor
     let settings: AppSettings
+    let penCase: PenCase
+    /// A double-tap or squeeze on the Pencil, already resolved against Settings.
+    let pencilTapped: (PencilTapAction) -> Void
 
     func makeCoordinator() -> NotebookCanvas { NotebookCanvas(model: model, controller: controller) }
 
@@ -32,11 +35,13 @@ struct NotebookCanvasView: UIViewRepresentable {
         let canvas = context.coordinator.canvas
         context.coordinator.apply(gutter: gutterColor, hairline: hairlineColor)
         context.coordinator.apply(settings)
+        context.coordinator.pencilTapped = pencilTapped
         return canvas
     }
 
     func updateUIView(_ canvas: PKCanvasView, context: Context) {
-        context.coordinator.sync(tool: model.tool, layout: model.layout, revision: model.revision)
+        context.coordinator.pencilTapped = pencilTapped
+        context.coordinator.sync(tool: penCase.pkTool, layout: model.layout, revision: model.revision)
         context.coordinator.apply(gutter: gutterColor, hairline: hairlineColor)
         context.coordinator.apply(settings)
     }
@@ -55,6 +60,7 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
     private var zoom: ZoomRange?
     private var fingerTap: FingerTap?
     private var settings = AppSettings()
+    var pencilTapped: (PencilTapAction) -> Void = { _ in }
     /// True while Ductus itself is undoing or redoing, to spot undos that came from elsewhere.
     private var isStepping = false
 
@@ -155,8 +161,8 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
             hairline: hairline.uiColor.resolvedColor(with: canvas.superview?.traitCollection ?? canvas.traitCollection))
     }
 
-    func sync(tool: EditorTool, layout newLayout: PageLayout, revision: Int) {
-        canvas.tool = tool.pkTool
+    func sync(tool: PKTool, layout newLayout: PageLayout, revision: Int) {
+        canvas.tool = tool
         if newLayout != layout {
             layout = newLayout
             underlay.configure(notebook: model.notebook, layout: layout)
@@ -223,8 +229,8 @@ final class NotebookCanvas: NSObject, PKCanvasViewDelegate, UIPencilInteractionD
 
     func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
         let action = settings.pencilDoubleTap.action(system: PencilTapAction(UIPencilInteraction.preferredTapAction))
-        model.pencilTapped(action)
-        TouchRecorder.event("pencilTap", ["action": "\(action)", "tool": "\(model.tool.kind)"])
+        pencilTapped(action)
+        TouchRecorder.event("pencilTap", ["action": "\(action)"])
     }
 
     // MARK: UIScrollViewDelegate

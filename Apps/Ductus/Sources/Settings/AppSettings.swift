@@ -92,10 +92,11 @@ extension AppSettings {
     }
 }
 
-/// Holds the settings and saves every change straight away.
+/// Holds the settings and the pen case, and saves every change straight away.
 @MainActor @Observable
 final class SettingsStore {
     static let key = "settings"
+    static let penCaseKey = "penCase"
     /// Where the library's temporary theme picker kept the theme before Settings existed.
     static let legacyThemeKey = "theme"
 
@@ -106,10 +107,21 @@ final class SettingsStore {
         }
     }
 
+    /// Your pens and the tool in hand, shared by every notebook.
+    var penCase: PenCase {
+        didSet {
+            guard penCase != oldValue, let data = try? JSONEncoder().encode(penCase) else { return }
+            defaults.set(data, forKey: Self.penCaseKey)
+        }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        penCase =
+            defaults.data(forKey: Self.penCaseKey).flatMap { try? JSONDecoder().decode(PenCase.self, from: $0) }
+            ?? .default
         let saved = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(AppSettings.self, from: $0) }
         if let saved {
             settings = saved

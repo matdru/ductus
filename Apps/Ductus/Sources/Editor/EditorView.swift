@@ -26,9 +26,11 @@ struct EditorView: View {
                 if model.isLoaded {
                     NotebookCanvasView(
                         model: model, controller: controller, gutterColor: theme.colors.canvas,
-                        hairlineColor: theme.colors.hairline, settings: settings.settings)
+                        hairlineColor: theme.colors.hairline, settings: settings.settings,
+                        penCase: settings.penCase,
+                        pencilTapped: { settings.penCase.pencilTapped($0) })
                 }
-                EditorToolRail(tool: $model.tool).padding(14)
+                PenCaseRail(penCase: Bindable(settings).penCase).padding(14)
             }
             statusBar
         }
@@ -37,6 +39,7 @@ struct EditorView: View {
             .background(TouchRecorderInstaller())
         #endif
         .tint(theme.colors.accent)
+        .onChange(of: settings.penCase.selection) { _, tool in TouchRecorder.event("tool", ["tool": "\(tool)"]) }
         .task { await model.load() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { Task { await model.saveNow() } }
@@ -90,7 +93,7 @@ struct EditorView: View {
             Text("\(model.notebook.paper.type.displayName) · \(model.notebook.size.rawValue.uppercased())")
             Text("Page \(model.currentPage + 1) of \(model.notebook.pages.count)")
             Spacer()
-            Text("\(model.tool.kind.name) · \(model.tool.color.rawValue.capitalized)")
+            Text(toolDescription)
             Text("\(controller.zoomPercent)%")
         }
         .font(theme.typography.mono.font)
@@ -99,6 +102,17 @@ struct EditorView: View {
         .frame(height: 30)
         .background(theme.colors.sidebar)
         .overlay(alignment: .top) { Rectangle().fill(theme.colors.hairline).frame(height: 1) }
+    }
+
+    private var toolDescription: String {
+        let penCase = settings.penCase
+        switch penCase.selection {
+        case .pen:
+            guard let pen = penCase.selectedPen else { return "" }
+            return "\(pen.ink.name) · \(String(format: "%.1f", pen.widthInPoints)) pt · \(pen.colorName)"
+        case .eraser: return penCase.eraser == .stroke ? "Eraser · Strokes" : "Eraser · Pixels"
+        case .lasso: return "Lasso"
+        }
     }
 
     private var saveLabel: String {
@@ -130,54 +144,5 @@ struct EditorView: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .accessibilityLabel(label)
-    }
-}
-
-/// The vertical tool rail: inks, eraser, lasso and ink colours.
-struct EditorToolRail: View {
-    @Binding var tool: EditorTool
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        VStack(spacing: 2) {
-            ForEach(EditorTool.Kind.allCases, id: \.self) { kind in
-                Button {
-                    tool.kind = kind
-                } label: {
-                    Image(systemName: kind.systemImage)
-                        .font(.system(size: 18))
-                        .frame(width: 44, height: 44)
-                        .foregroundStyle(tool.kind == kind ? theme.colors.accent : theme.colors.textPrimary)
-                        .background(
-                            tool.kind == kind ? theme.colors.accentTint : theme.colors.surface,
-                            in: .rect(cornerRadius: theme.metrics.radiusSmall)
-                        )
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(kind.name)
-                if kind == .marker {
-                    Rectangle().fill(theme.colors.hairline).frame(width: 28, height: 1).padding(.vertical, 4)
-                }
-            }
-            Rectangle().fill(theme.colors.hairline).frame(width: 28, height: 1).padding(.vertical, 4)
-            ForEach(EditorTool.InkColor.allCases, id: \.self) { color in
-                Button {
-                    tool.color = color
-                } label: {
-                    Circle().fill(Color(uiColor: color.uiColor)).frame(width: 20, height: 20)
-                        .overlay(
-                            Circle().stroke(theme.colors.accent, lineWidth: tool.color == color ? 2 : 0).padding(-3)
-                        )
-                        .frame(width: 44, height: 34)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(color.rawValue.capitalized)
-            }
-        }
-        .padding(5)
-        .background(theme.colors.surface, in: .rect(cornerRadius: theme.metrics.radiusMedium))
-        .overlay(RoundedRectangle(cornerRadius: theme.metrics.radiusMedium).stroke(theme.colors.hairline))
     }
 }
