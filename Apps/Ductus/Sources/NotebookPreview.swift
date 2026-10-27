@@ -30,7 +30,7 @@ extension PaperType {
     }
 }
 
-/// A glimpse of a notebook's paper: colour and rule pattern. Real page thumbnails replace this with DRU-43.
+/// A glimpse of a notebook's paper: colour and rule pattern, shown until the notebook has a thumbnail.
 struct PaperGlimpse: View {
     let paper: Paper
 
@@ -76,7 +76,7 @@ struct PaperGlimpse: View {
     }
 }
 
-/// A recent-notebook card: paper glimpse, colour swatch, title and current page count.
+/// A recent-notebook card: where you left off, colour swatch, title and current page count.
 struct NotebookCard: View {
     let notebook: Notebook
     let library: LibraryModel
@@ -87,8 +87,9 @@ struct NotebookCard: View {
         VStack(alignment: .leading, spacing: 0) {
             Group {
                 if let thumbnail {
+                    // A close-up of the latest writing (see `Thumbnailer`); narrower cards trim its sides.
                     Image(uiImage: thumbnail).resizable().scaledToFill()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     PaperGlimpse(paper: notebook.paper)
                 }
