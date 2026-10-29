@@ -89,6 +89,25 @@ struct UndoTests {
         for own in view.gestureRecognizers ?? [] { #expect(!fingerTap.delays(own)) }
     }
 
+    /// Recorded on an iPad Pro: ~110 real taps were held 0.06–0.14s; pinches that ended in an undo, 0.44–0.81s.
+    @Test func aLongerPressIsNotATap() {
+        #expect(FingerTap.isTap(heldFor: 0.07))
+        #expect(FingerTap.isTap(heldFor: 0.14))
+        #expect(!FingerTap.isTap(heldFor: 0.44))
+        #expect(!FingerTap.isTap(heldFor: 2))
+    }
+
+    /// A pinch keeps the fingers' centre nearly still, so on its own the tap recognizer let pinch-zooms end in an undo.
+    @Test func fingerTapsWaitForPinchAndScrollToFail() throws {
+        let scrollView = UIScrollView()
+        scrollView.maximumZoomScale = 4  // a scroll view only has a pinch recognizer once it can zoom
+        let fingerTap = FingerTap(on: scrollView, undo: {}, redo: {})
+        #expect(fingerTap.waits(for: try #require(scrollView.pinchGestureRecognizer)))
+        #expect(fingerTap.waits(for: scrollView.panGestureRecognizer))
+        #expect(!fingerTap.waits(for: UIPanGestureRecognizer()))
+        #expect(!fingerTap.waits(for: UITapGestureRecognizer()))
+    }
+
     @Test func theCanvasOptsOutOfSystemThreeFingerEditing() {
         // iPadOS's three-finger tap opens an edit menu (and swipes undo); taps on that menu caused stray undos.
         #expect(LayoutReportingCanvasView().editingInteractionConfiguration == .none)
